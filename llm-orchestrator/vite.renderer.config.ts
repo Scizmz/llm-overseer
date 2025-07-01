@@ -11,5 +11,12 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: { input: 'index.html' }
   },
-  resolve: { alias: { '@': join(__dirname, 'src') } }
+  resolve: { alias: { '@': join(__dirname, 'src') } },
+  define: {
+    // Define process.env for the renderer process
+    'process.env': {
+      REACT_APP_WS_URL: JSON.stringify('http://localhost:3000'),
+      NODE_ENV: JSON.stringify('development')
+    }
+  }
 });

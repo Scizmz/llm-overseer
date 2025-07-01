@@ -14,14 +14,115 @@ const io = new Server(httpServer, {
 });
 
 // Redis for state management across instances
-const redis = new Redis({
-  host: process.env.REDIS_HOST || 'redis',
-  port: process.env.REDIS_PORT || 6379
-});
+const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// Add these routes to your services/orchestrator/src/index.js file
+// Insert after the line: app.use(express.json());
+
+// Enable CORS for Electron app
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    service: 'orchestrator',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
+// Basic API routes that your frontend expects
+app.get('/api/models', async (req, res) => {
+  try {
+    // For now, return mock data - later connect to actual model registry
+    const models = [
+      {
+        id: 'gpt-4',
+        name: 'GPT-4',
+        type: 'cloud',
+        provider: 'openai',
+        status: 'ready',
+        capabilities: ['chat', 'completion'],
+        endpoint: 'https://api.openai.com/v1'
+      },
+      {
+        id: 'local-llama',
+        name: 'Local Llama',
+        type: 'local',
+        provider: 'ollama',
+        status: 'idle',
+        capabilities: ['chat', 'completion'],
+        endpoint: 'http://localhost:11434'
+      }
+    ];
+    
+    res.json({ success: true, models });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Discovery endpoints that frontend expects
+app.get('/api/discovery/state', (req, res) => {
+  res.json({
+    scanning: false,
+    scanProgress: 0,
+    lastScan: null,
+    discoveredDevices: [],
+    newDevicesCount: 0
+  });
+});
+
+app.post('/api/discovery/scan', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Network scan started',
+    scanId: Date.now().toString()
+  });
+});
+
+app.post('/api/discovery/stop', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Network scan stopped' 
+  });
+});
+
+// Chat endpoint for HTTP fallback
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, framework = 'BMAD-METHOD', projectId } = req.body;
+    
+    // For now, return a mock response
+    // Later this will integrate with actual LLM routing
+    const response = {
+      success: true,
+      response: `Received message: "${message}" using ${framework} framework`,
+      timestamp: new Date().toISOString(),
+      framework,
+      projectId
+    };
+    
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // Namespaces for different connection types
 const clientNamespace = io.of('/client');
