@@ -1,0 +1,70 @@
+import { contextBridge, ipcRenderer } from 'electron';
+import { ELECTRON_CHANNELS } from './config';
+
+// Define what will be exposed to the renderer
+contextBridge.exposeInMainWorld('api', {
+  /**
+   * Send a prompt to the main process and receive the LLM response.
+   * @param prompt The user's prompt string.
+   * @param framework Optional framework to use
+   * @returns Promise with LLM response
+   */
+  invokeLLM: (prompt: string, framework?: string) =>
+    ipcRenderer.invoke(ELECTRON_CHANNELS.LLM_INVOKE, prompt, framework)
+});
+
+// Network Discovery and Device Management API
+contextBridge.exposeInMainWorld('electronAPI', {
+  // Network Discovery
+  startNetworkScan: () => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.DISCOVERY_START_SCAN),
+  
+  stopNetworkScan: () => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.DISCOVERY_STOP_SCAN),
+  
+  getDiscoveryState: () => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.DISCOVERY_GET_STATE),
+  
+  onNetworkDiscoveryUpdate: (callback: (data: any) => void) => {
+    const listener = (_event: any, data: any) => callback(data);
+    ipcRenderer.on(ELECTRON_CHANNELS.DISCOVERY_UPDATE, listener);
+    
+    // Return unsubscribe function
+    return () => {
+      ipcRenderer.removeListener(ELECTRON_CHANNELS.DISCOVERY_UPDATE, listener);
+    };
+  },
+
+  // Device Management
+  connectToDevice: (device: any) => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.DEVICE_CONNECT, device),
+  
+  disconnectFromDevice: (deviceId: string) => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.DEVICE_DISCONNECT, deviceId),
+  
+  addDeviceToConfig: (device: any) => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.DEVICE_ADD_TO_CONFIG, device),
+  
+  removeDeviceFromConfig: (deviceId: string) => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.DEVICE_REMOVE_FROM_CONFIG, deviceId),
+
+  // Scan Configuration
+  getScanConfig: () => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.CONFIG_GET_SCAN),
+  
+  saveScanConfig: (config: any) => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.CONFIG_SAVE_SCAN, config),
+
+  // General Configuration
+  getNetworkConfig: () => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.CONFIG_GET_NETWORK),
+  
+  updateNetworkConfig: (config: any) => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.CONFIG_SAVE_NETWORK, config),
+  
+  exportConfig: () => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.CONFIG_EXPORT),
+  
+  importConfig: (configPath: string) => 
+    ipcRenderer.invoke(ELECTRON_CHANNELS.CONFIG_IMPORT, configPath)
+});

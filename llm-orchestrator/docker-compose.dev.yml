@@ -1,0 +1,32 @@
+# docker-compose.dev.yml
+version: '3.8'
+
+services:
+  orchestrator:
+    build:
+      context: ./services/orchestrator
+      dockerfile: Dockerfile.dev
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./services/orchestrator:/app
+      - /app/node_modules
+    command: npm run dev
+
+  model-gateway:
+    build:
+      context: ./services/model-gateway
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./services/model-gateway:/app
+      - /app/node_modules
+    command: npm run dev
+
+  state-manager:
+    build:
+      context: ./services/state-manager
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./services/state-manager:/app
+      - /app/node_modules
+    command: npm run dev

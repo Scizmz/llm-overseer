@@ -1,0 +1,139 @@
+require('dotenv').config();
+const fs = require('fs').promises;
+const path = require('path');
+const LMStudioAdapter = require('./adapters/lm-studio-adapter');
+const OllamaAdapter = require('./adapters/ollama-adapter');
+
+const configPath = process.env.LOCAL_LLM_CONFIG || './local-llm-config.json';
+const orchestratorUrl = process.env.ORCHESTRATOR_URL || 'http://orchestrator:3000';
+const enableNetworkScan = process.env.ENABLE_NETWORK_SCAN === 'true';
+const lmStudioAltPorts = (process.env.LM_STUDIO_ALT_PORTS || '1234').split(',');
+const ollamaPorts = (process.env.OLLAMA_PORTS || '11434').split(',');
+
+const adapters = [];
+
+/**
+ * Load and connect to instances defined in config file
+ */
+async function loadConfiguredInstances() {
+  try {
+    const configExists = await fs.access(path.resolve(configPath)).then(() => true).catch(() => false);
+    
+    if (!configExists) {
+      console.log(`Config file not found at ${configPath}. Skipping configured instances.`);
+      return;
+    }
+
+    const file = await fs.readFile(path.resolve(configPath), 'utf8');
+    const instances = JSON.parse(file);
+    
+    if (!Array.isArray(instances)) {
+      console.error('Config file must contain an array of instances');
+      return;
+    }
+
+    console.log(`Loading ${instances.length} configured instances...`);
+
+    for (const instance of instances) {
+      try {
+        await createAndConnectAdapter(instance);
+      } catch (error) {
+        console.error(`Failed to connect to ${instance.name || instance.host}:${instance.port}:`, error.message);
+      }
+    }
+  } catch (err) {
+    console.error('Error loading config:', err.message);
+  }
+}
+
+/**
+ * Create and connect adapter based on instance configuration
+ */
+async function createAndConnectAdapter(instance) {
+  // Validate required fields
+  if (!instance.host || !instance.port) {
+    throw new Error('Instance must have host and port defined');
+  }
+
+  // Default to ollama if type not specified
+  const type = instance.type || 'ollama';
+  const url = `http://${instance.host}:${instance.port}`;
+  const name = instance.name || `${type}-${instance.host}:${instance.port}`;
+
+  let adapter;
+  
+  if (type === 'lm-studio') {
+    adapter = new LMStudioAdapter(orchestratorUrl, url, name);
+  } else if (type === 'ollama') {
+    adapter = new OllamaAdapter(orchestratorUrl, url, name);
+  } else {
+    throw new Error(`Unknown LLM instance type: ${type}`);
+  }
+
+  adapters.push(adapter);
+  await adapter.connect();
+  console.log(`Successfully connected to ${name} at ${url}`);
+}
+
+/**
+ * Network scanning functionality (only runs if explicitly enabled)
+ */
+async function performNetworkScan() {
+  if (!enableNetworkScan) {
+    console.log('Network scanning disabled. Set ENABLE_NETWORK_SCAN=true to enable.');
+    return;
+  }
+
+  console.log('Starting network scan for LLM instances...');
+  
+  // Add your existing network scanning logic here
+  // This is where you would implement discovery of LM Studio and Ollama instances
+  // on the network using the configured ports
+  
+  console.log('Network scan completed');
+}
+
+/**
+ * Graceful shutdown handler
+ */
+async function shutdown() {
+  console.log('Shutting down adapters...');
+  
+  for (const adapter of adapters) {
+    try {
+      adapter.disconnect();
+    } catch (error) {
+      console.error('Error disconnecting adapter:', error.message);
+    }
+  }
+  
+  process.exit(0);
+}
+
+// Handle graceful shutdown
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+// Main execution
+(async () => {
+  try {
+    console.log('Starting LLM discovery service...');
+    
+    // Always try to load configured instances first
+    await loadConfiguredInstances();
+    
+    // Only scan network if explicitly enabled
+    await performNetworkScan();
+    
+    console.log(`LLM discovery service started with ${adapters.length} adapters`);
+    
+    // Keep the process alive
+    setInterval(() => {
+      // Optional: Add health check logic here
+    }, 30000);
+    
+  } catch (error) {
+    console.error('Failed to start discovery service:', error.message);
+    process.exit(1);
+  }
+})();

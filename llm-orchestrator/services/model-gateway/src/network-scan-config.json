@@ -1,0 +1,51 @@
+{
+  "scanSettings": {
+    "enabled": false,
+    "timeout": 2000,
+    "concurrency": 50,
+    "retries": 1
+  },
+  "scanRanges": [
+    {
+      "name": "Local Subnet (Auto)",
+      "type": "auto",
+      "enabled": true
+    },
+    {
+      "name": "Home Network",
+      "type": "subnet", 
+      "subnet": "192.168.1",
+      "startIP": 1,
+      "endIP": 254,
+      "enabled": true
+    },
+    {
+      "name": "Office Network",
+      "type": "subnet",
+      "subnet": "10.0.0", 
+      "startIP": 1,
+      "endIP": 100,
+      "enabled": false
+    }
+  ],
+  "customIPs": [
+    {
+      "name": "Dev Server",
+      "ip": "192.168.1.100",
+      "enabled": true
+    },
+    {
+      "name": "Gaming PC", 
+      "ip": "192.168.1.150",
+      "enabled": true
+    }
+  ],
+  "servicePorts": {
+    "ollama": ["11434", "8080"],
+    "lmStudio": ["1234", "8000", "8080"]
+  },
+  "excludeIPs": [
+    "192.168.1.1",
+    "192.168.1.254"
+  ]
+}

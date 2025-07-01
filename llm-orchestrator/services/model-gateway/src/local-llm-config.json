@@ -1,0 +1,26 @@
+[
+  {
+    "host": "192.168.1.247",
+    "port": 1234,
+    "type": "lm-studio",
+    "name": "Server LM Studio"
+  },
+  {
+    "host": "localhost",
+    "port": 1234,
+    "type": "lm-studio",
+    "name": "Local Development LM Studio"
+  },
+  {
+    "host": "192.168.0.247",
+    "port": 11434,
+    "type": "ollama",
+    "name": "Server Room Ollama"
+  },
+  {
+    "host": "localhost",
+    "port": 8080,
+    "type": "ollama",
+    "name": "Local Development Ollama"
+  }
+]
