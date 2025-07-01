@@ -5,12 +5,18 @@ const Redis = require('ioredis');
 
 const app = express();
 const httpServer = createServer(app);
+
+// Enhanced Socket.IO configuration
 const io = new Server(httpServer, {
   cors: { 
     origin: "*",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
+    credentials: false
   },
-  transports: ['websocket', 'polling'], // Support both for reliability
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 // Redis for state management across instances
@@ -19,9 +25,6 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-
-// Add these routes to your services/orchestrator/src/index.js file
-// Insert after the line: app.use(express.json());
 
 // Enable CORS for Electron app
 app.use((req, res, next) => {
@@ -42,15 +45,19 @@ app.get('/health', (req, res) => {
     status: 'ok', 
     service: 'orchestrator',
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
+    connections: {
+      clients: clientNamespace.sockets.size,
+      llms: connectedLLMs.size
+    }
   });
 });
 
 // Basic API routes that your frontend expects
 app.get('/api/models', async (req, res) => {
   try {
-    // For now, return mock data - later connect to actual model registry
-    const models = [
+    // Return both mock data and connected LLMs
+    const mockModels = [
       {
         id: 'gpt-4',
         name: 'GPT-4',
@@ -58,7 +65,8 @@ app.get('/api/models', async (req, res) => {
         provider: 'openai',
         status: 'ready',
         capabilities: ['chat', 'completion'],
-        endpoint: 'https://api.openai.com/v1'
+        endpoint: 'https://api.openai.com/v1',
+        role: 'Primary Assistant'
       },
       {
         id: 'local-llama',
@@ -67,11 +75,20 @@ app.get('/api/models', async (req, res) => {
         provider: 'ollama',
         status: 'idle',
         capabilities: ['chat', 'completion'],
-        endpoint: 'http://localhost:11434'
+        endpoint: 'http://localhost:11434',
+        role: 'Code Assistant'
       }
     ];
     
-    res.json({ success: true, models });
+    // Combine with connected LLMs
+    const connectedModels = Array.from(connectedLLMs.values()).map(llm => ({
+      ...llm,
+      role: llm.role || 'Connected Model'
+    }));
+    
+    const allModels = [...mockModels, ...connectedModels];
+    
+    res.json({ success: true, models: allModels });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -124,98 +141,174 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// API endpoint to get connected LLMs
+app.get('/api/llms', (req, res) => {
+  res.json({
+    success: true,
+    llms: Array.from(connectedLLMs.values()),
+    count: connectedLLMs.size
+  });
+});
+
 // Namespaces for different connection types
 const clientNamespace = io.of('/client');
 const llmNamespace = io.of('/llm');
 const stateNamespace = io.of('/state');
 
-// Track connected LLMs
+// Track connected LLMs and clients
 const connectedLLMs = new Map();
+const connectedClients = new Map();
 
 // Client connections (frontend)
 clientNamespace.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+  console.log(`📱 Client connected: ${socket.id}`);
   
-  // Send initial state
+  connectedClients.set(socket.id, {
+    id: socket.id,
+    connectedAt: new Date(),
+    lastActivity: new Date()
+  });  
+  
+  // Send initial state immediately
   socket.emit('connected', {
     type: 'connected',
-    message: 'Connected to Orchestrator',
+    message: 'Connected to LLM Orchestrator',
     timestamp: new Date().toISOString(),
-    availableLLMs: Array.from(connectedLLMs.values())
+    availableLLMs: Array.from(connectedLLMs.values()),
+    clientId: socket.id
   });
   
   // Handle ping/pong for connection monitoring
   socket.on('ping', (callback) => {
-    callback({
+    const response = {
       type: 'pong',
-      timestamp: new Date().toISOString()
-    });
-  });
-  
-  // Handle chat requests
-  socket.on('chat', async (data, callback) => {
-    const { message, models = ['all'], framework = 'BMAD-METHOD' } = data;
+      timestamp: new Date().toISOString(),
+      serverTime: Date.now()
+    };
     
-    // Store in state manager
-    const chatId = Date.now().toString();
-    await redis.hset(`chat:${chatId}`, {
-      message,
-      framework,
-      models: JSON.stringify(models),
-      timestamp: new Date().toISOString()
-    });
-    
-    // Broadcast to selected LLMs
-    if (models.includes('all')) {
-      llmNamespace.emit('process', { chatId, message, framework });
+    if (typeof callback === 'function') {
+      callback(response);
     } else {
-      models.forEach(modelId => {
-        llmNamespace.to(modelId).emit('process', { chatId, message, framework });
-      });
+      socket.emit('pong', response);
     }
     
-    // Acknowledge receipt
-    callback({ status: 'processing', chatId });
+    // Update last activity
+    const client = connectedClients.get(socket.id);
+    if (client) {
+      client.lastActivity = new Date();
+    }
+  });
+
+  // Handle chat requests
+  socket.on('chat', async (data, callback) => {
+    try {
+      const { message, models = ['all'], framework = 'BMAD-METHOD' } = data;
+      console.log(`💬 Chat request from ${socket.id}:`, { message, framework });
+      
+      // Store in Redis for state management
+      const chatId = `chat_${Date.now()}_${socket.id}`;
+      await redis.hset(`chat:${chatId}`, {
+        message,
+        framework,
+        models: JSON.stringify(models),
+        clientId: socket.id,
+        timestamp: new Date().toISOString(),
+        status: 'received'
+      });
+      
+      // For now, send a mock response
+      // Later this will route to actual LLMs
+      const response = {
+        success: true,
+        chatId,
+        response: `Echo: ${message} (processed with ${framework})`,
+        timestamp: new Date().toISOString(),
+        framework,
+        models
+      };
+      
+      // Send response via callback
+      if (typeof callback === 'function') {
+        callback(response);
+      }
+      
+      // Also emit as event for real-time updates
+      socket.emit('llm-response', {
+        chatId,
+        message: response.response,
+        framework,
+        timestamp: response.timestamp
+      });
+      
+    } catch (error) {
+      console.error('❌ Chat error:', error);
+      const errorResponse = {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+      
+      if (typeof callback === 'function') {
+        callback(errorResponse);
+      }
+    }
   });
   
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+  // Handle disconnection
+  socket.on('disconnect', (reason) => {
+    console.log(`📱❌ Client disconnected: ${socket.id}, reason: ${reason}`);
+    connectedClients.delete(socket.id);
+  });
+  
+  // Handle errors
+  socket.on('error', (error) => {
+    console.error(`📱⚠️ Client socket error for ${socket.id}:`, error);
   });
 });
 
-// LLM connections
+// LLM connections (for model adapters)
 llmNamespace.on('connection', (socket) => {
-  console.log('LLM connected:', socket.id);
+  console.log(`🤖 LLM connected: ${socket.id}`);
   
-  // Register LLM
+  // Register LLM with enhanced info
   socket.on('register', (data) => {
-    const { name, type, capabilities, endpoint } = data;
+    const { name, type, capabilities, endpoint, role } = data;
     const llmInfo = {
       id: socket.id,
       name,
       type, // 'local' or 'remote'
       capabilities,
       endpoint,
-      status: 'ready'
+      role: role || 'AI Assistant',
+      status: 'connected',
+      registeredAt: new Date(),
+      lastActivity: new Date()
     };
     
     connectedLLMs.set(socket.id, llmInfo);
     socket.join(socket.id); // Join own room for targeted messages
     
-    // Notify clients of new LLM
+    // Notify all clients of new LLM
     clientNamespace.emit('llm-update', {
       type: 'connected',
       llm: llmInfo
     });
     
-    console.log(`LLM registered: ${name} (${type}) - ${endpoint}`);
+    console.log(`🤖✅ LLM registered: ${name} (${type}) - ${endpoint}`);
+    
+    // Send confirmation back to LLM
+    socket.emit('registered', { 
+      success: true, 
+      id: socket.id,
+      timestamp: new Date().toISOString()
+    });
   });
   
   // Handle LLM responses
   socket.on('response', async (data) => {
     const { chatId, response, modelId, status = 'complete' } = data;
     
-    // Store response
+    // Store response in Redis
     await redis.hset(`response:${chatId}:${modelId}`, {
       response,
       modelId,
@@ -223,65 +316,103 @@ llmNamespace.on('connection', (socket) => {
       timestamp: new Date().toISOString()
     });
     
-    // Forward to client
+    // Forward to all clients
     clientNamespace.emit('llm-response', {
       chatId,
       modelId,
       response,
-      status
+      status,
+      timestamp: new Date().toISOString()
     });
+    
+    console.log(`🤖💬 Response from ${modelId} for chat ${chatId}`);
   });
   
   // Handle file requests from LLMs
   socket.on('file-request', async (data, callback) => {
     const { fileId, operation } = data;
+    console.log(`🤖📁 File request from ${socket.id}:`, { fileId, operation });
+    
     // Forward to state manager
-    stateNamespace.emit('file-operation', { fileId, operation, requesterId: socket.id });
-    // TODO: Implement file handling
-    callback({ status: 'processing' });
+    stateNamespace.emit('file-operation', { 
+      fileId, 
+      operation, 
+      requesterId: socket.id 
+    });
+    
+    // TODO: Implement proper file handling
+    if (typeof callback === 'function') {
+      callback({ 
+        status: 'processing',
+        fileId,
+        timestamp: new Date().toISOString()
+      });
+    }
   });
   
-  socket.on('disconnect', () => {
-    connectedLLMs.delete(socket.id);
-    clientNamespace.emit('llm-update', {
-      type: 'disconnected',
-      llmId: socket.id
-    });
-    console.log('LLM disconnected:', socket.id);
+  // Handle LLM status updates
+  socket.on('status-update', (data) => {
+    const llm = connectedLLMs.get(socket.id);
+    if (llm) {
+      llm.status = data.status;
+      llm.lastActivity = new Date();
+      
+      // Notify clients of status change
+      clientNamespace.emit('llm-update', {
+        type: 'status-change',
+        llmId: socket.id,
+        status: data.status
+      });
+    }
+  });
+  
+  socket.on('disconnect', (reason) => {
+    const llm = connectedLLMs.get(socket.id);
+    if (llm) {
+      console.log(`🤖❌ LLM disconnected: ${llm.name}, reason: ${reason}`);
+      connectedLLMs.delete(socket.id);
+      
+      // Notify all clients
+      clientNamespace.emit('llm-update', {
+        type: 'disconnected',
+        llmId: socket.id
+      });
+    }
   });
 });
 
 // State manager connections
 stateNamespace.on('connection', (socket) => {
-  console.log('State manager connected:', socket.id);
+  console.log(`💾 State manager connected: ${socket.id}`);
   
   socket.on('state-update', async (data) => {
     const { type, payload } = data;
+    console.log(`💾🔄 State update: ${type}`);
+    
     // Broadcast state changes to all clients
-    clientNamespace.emit('state-change', { type, payload });
+    clientNamespace.emit('state-change', { 
+      type, 
+      payload,
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  socket.on('disconnect', (reason) => {
+    console.log(`💾❌ State manager disconnected: ${socket.id}, reason: ${reason}`);
   });
 });
 
-// REST endpoints for health and status
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    service: 'orchestrator',
-    connections: {
-      clients: clientNamespace.sockets.size,
-      llms: connectedLLMs.size
-    }
-  });
+// Error handling for the main Socket.IO server
+io.on('error', (error) => {
+  console.error('🔌⚠️ Socket.IO server error:', error);
 });
 
-app.get('/api/llms', (req, res) => {
-  res.json(Array.from(connectedLLMs.values()));
-});
-
+// Start the server
 httpServer.listen(PORT, () => {
-  console.log(`Orchestrator running on port ${PORT}`);
-  console.log('Socket.io namespaces:');
-  console.log('  - /client (frontend connections)');
-  console.log('  - /llm (model connections)');
-  console.log('  - /state (state manager)');
+  console.log(`🚀 Orchestrator server running on port ${PORT}`);
+  console.log(`🔌 Socket.IO server ready for connections`);
+  console.log(`📡 Available namespaces:`);
+  console.log(`   - /client (frontend connections)`);
+  console.log(`   - /llm (model connections)`);
+  console.log(`   - /state (state manager)`);
 });
