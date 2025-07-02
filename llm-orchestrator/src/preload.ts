@@ -15,6 +15,11 @@ contextBridge.exposeInMainWorld('api', {
 
 // Network Discovery and Device Management API
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Window Controls
+  minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
+  maximizeWindow: () => ipcRenderer.invoke('window-maximize'),
+  closeWindow: () => ipcRenderer.invoke('window-close'),
+  
   // Network Discovery
   startNetworkScan: () => 
     ipcRenderer.invoke(ELECTRON_CHANNELS.DISCOVERY_START_SCAN),

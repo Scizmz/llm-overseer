@@ -4,7 +4,7 @@ import { sendPrompt, getAvailableModels, getModelStatus, LLMRequest } from './ll
 import { API_CONFIG, ELECTRON_CHANNELS } from './config';
 import axios from 'axios';
 
-// Add this declaration for Vite's special variables
+// Vite build variables
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
@@ -14,26 +14,80 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    minWidth: 800,
+    minHeight: 600,
+    frame: false,
+    resizable: true,
     webPreferences: {
       preload: join(__dirname, 'preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false
     },
-    titleBarStyle: 'default',
-    icon: join(__dirname, 'assets/icon.png') // Add your app icon
+    backgroundColor: '#1a1a1a',
+    show: false,
+    titleBarStyle: 'customButtonsOnHover',
+    icon: join(__dirname, 'assets/icon.png'),
+    webSecurity: true,
   });
 
-  // In development, use the dev server URL
+  // Smooth window appearance
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    
+    // Fade-in animation
+    mainWindow.setOpacity(0);
+    let opacity = 0;
+    const fadeIn = setInterval(() => {
+      opacity += 0.1;
+      mainWindow.setOpacity(opacity);
+      if (opacity >= 1) {
+        clearInterval(fadeIn);
+      }
+    }, 16);
+  });
+
+  // Load application
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-    mainWindow.webContents.openDevTools(); // Auto-open DevTools in development
+    mainWindow.webContents.openDevTools();
   } else {
-    // In production, load the built file
     mainWindow.loadFile(join(__dirname, `renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
+
+  // Window state change events
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('window-state-changed', { maximized: true });
+  });
+
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('window-state-changed', { maximized: false });
+  });
 }
 
-// IPC Handlers
+// === IPC HANDLERS ===
+
+// Window Controls
+ipcMain.handle('window-minimize', () => {
+  if (mainWindow) {
+    mainWindow.minimize();
+  }
+});
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.restore();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.handle('window-close', () => {
+  if (mainWindow) {
+    mainWindow.close();
+  }
+});
 
 // LLM Communication
 ipcMain.handle(ELECTRON_CHANNELS.LLM_INVOKE, async (_event, prompt: string, framework?: string) => {
@@ -153,17 +207,11 @@ ipcMain.handle(ELECTRON_CHANNELS.CONFIG_EXPORT, async () => {
   }
 });
 
-// Real-time updates via WebSocket (when available)
-function setupRealtimeUpdates() {
-  // This will be implemented when WebSocket integration is ready
-  // For now, we can poll for updates or use the existing WebSocket service
-  console.log('Real-time updates will be implemented with WebSocket integration');
-}
+// === APP EVENT HANDLERS ===
 
-// App Event Handlers
 app.whenReady().then(() => {
   createWindow();
-  setupRealtimeUpdates();
+  console.log('🚀 AI-Agentic Overseer ready');
 });
 
 app.on('window-all-closed', () => {
@@ -178,8 +226,6 @@ app.on('activate', () => {
   }
 });
 
-// Graceful shutdown
 app.on('before-quit', () => {
-  // Cleanup any ongoing network scans or connections
-  console.log('Application shutting down...');
+  console.log('📱 Application shutting down...');
 });

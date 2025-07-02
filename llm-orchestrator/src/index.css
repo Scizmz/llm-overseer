@@ -1,11 +1,4 @@
-/* Temporarily comment out Tailwind to test if it's causing the issue */
-/*
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-*/
-
-/* Reset and base styles */
+/* Completely reset and use basic CSS for layout debugging */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -15,59 +8,118 @@
 html, body {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #1a1a1a; /* Dark background */
+  color: #ffffff; /* Light text */
 }
 
 #root {
   height: 100vh;
   width: 100vw;
-}
-
-/* Basic utility classes to replace Tailwind temporarily */
-.flex {
   display: flex;
-}
-
-.flex-col {
   flex-direction: column;
 }
 
+/* Force the main layout */
+.app-container {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  background-color: #1a1a1a !important;
+}
+
+.status-bar {
+  height: 60px !important;
+  background-color: #2d2d2d !important;
+  border-bottom: 1px solid #404040 !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 16px !important;
+}
+
+.main-content {
+  display: flex !important;
+  flex: 1 !important;
+  overflow: hidden !important;
+}
+
+.sidebar {
+  width: 320px !important;
+  background-color: #2d2d2d !important;
+  border-right: 1px solid #404040 !important;
+  overflow-y: auto !important;
+}
+
+.chat-panel {
+  flex: 1 !important;
+  background-color: #1a1a1a !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border: 2px solid #ff0000 !important; /* RED BORDER FOR DEBUG */
+}
+
+.bottom-status {
+  height: 40px !important;
+  background-color: #2d2d2d !important;
+  border-top: 1px solid #404040 !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 16px !important;
+}
+
+/* Basic utility classes for dark mode */
+.flex {
+  display: flex !important;
+}
+
+.flex-col {
+  flex-direction: column !important;
+}
+
 .flex-1 {
-  flex: 1;
+  flex: 1 !important;
 }
 
 .h-screen {
-  height: 100vh;
+  height: 100vh !important;
 }
 
 .w-screen {
-  width: 100vw;
-}
-
-.bg-gray-100 {
-  background-color: #f3f4f6;
-}
-
-.bg-gray-800 {
-  background-color: #1f2937;
-}
-
-.p-3 {
-  padding: 0.75rem;
+  width: 100vw !important;
 }
 
 .overflow-hidden {
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
-/* Add more utility classes as needed */
-.text-white {
-  color: white;
+.bg-dark {
+  background-color: #1a1a1a !important;
 }
 
-.rounded {
-  border-radius: 0.25rem;
+.bg-darker {
+  background-color: #2d2d2d !important;
 }
 
-.shadow {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+.text-light {
+  color: #ffffff !important;
+}
+
+.border-dark {
+  border-color: #404040 !important;
+}
+
+/* Debug visibility */
+.debug-red {
+  border: 2px solid red !important;
+  background-color: rgba(255, 0, 0, 0.1) !important;
+}
+
+.debug-blue {
+  border: 2px solid blue !important;
+  background-color: rgba(0, 0, 255, 0.1) !important;
+}
+
+.debug-green {
+  border: 2px solid green !important;
+  background-color: rgba(0, 255, 0, 0.1) !important;
 }
