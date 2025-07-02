@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "../store";
 
-// Type definitions for models
+// Type definitions for models (keeping local interface for UI-specific properties)
 interface Model {
   id: string;
   name: string;
@@ -19,32 +19,16 @@ interface Model {
   };
 }
 
-// Network Discovery types
-interface DiscoveredDevice {
-  id: string;
-  name: string;
-  host: string;
-  port: number;
-  type: 'ollama' | 'lm-studio';
-  status: 'discovered' | 'connecting' | 'connected' | 'failed';
-  models?: string[];
-}
-
-interface NetworkDiscoveryState {
-  scanning: boolean;
-  lastScan: Date | null;
-  discoveredDevices: DiscoveredDevice[];
-  newDevicesCount: number;
-}
-
 interface SidebarProps {
   onSettings: () => void;
   onModelSelect?: (modelId: string) => void;
   onNetworkDiscovery?: () => void;
   onScanSettings?: () => void;
+  onViewChange?: (view: 'chat' | 'network' | 'settings') => void;
+  currentView?: 'chat' | 'network' | 'settings';
 }
 
-// Mock data for development (since mockModels wasn't defined in your original)
+// Mock data for development with enhanced UI properties
 const mockModels: Model[] = [
   {
     id: '1',
@@ -77,17 +61,27 @@ const mockModels: Model[] = [
   }
 ];
 
-export default function Sidebar({ onSettings, onModelSelect, onNetworkDiscovery, onScanSettings }: SidebarProps) {
+export default function Sidebar({ 
+  onSettings, 
+  onModelSelect, 
+  onNetworkDiscovery, 
+  onScanSettings, 
+  onViewChange,
+  currentView = 'chat'
+}: SidebarProps) {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [systemHealth, setSystemHealth] = useState<'healthy' | 'warning' | 'error'>('healthy');
-  const [discoveryState, setDiscoveryState] = useState<NetworkDiscoveryState>({
-    scanning: false,
-    lastScan: null,
-    discoveredDevices: [],
-    newDevicesCount: 0
-  });
   
-  const { models, fetchModels } = useStore();
+  // Use store for all network-related state
+  const { 
+    models, 
+    fetchModels,
+    networkDevices,
+    networkScanning,
+    networkLastScan,
+    startNetworkScan,
+    refreshNetworkDevices
+  } = useStore();
 
   const toggleCard = (modelId: string) => {
     const newExpanded = new Set(expandedCards);
@@ -122,11 +116,13 @@ export default function Sidebar({ onSettings, onModelSelect, onNetworkDiscovery,
   };
 
   const getHealthIndicator = () => {
-    switch (systemHealth) {
-      case 'healthy': return 'bg-green-500';
-      case 'warning': return 'bg-yellow-500';
-      case 'error': return 'bg-red-500';
-    }
+    // Calculate health based on models and network devices
+    const hasDisconnectedModels = displayModels.some(m => m.status === 'disconnected');
+    const hasFailedDevices = networkDevices.some(d => d.status === 'failed');
+    
+    if (hasDisconnectedModels || hasFailedDevices) return 'bg-red-500';
+    if (networkScanning) return 'bg-yellow-500';
+    return 'bg-green-500';
   };
 
   const getUsagePercentage = (used: number, limit: number) => {
@@ -148,52 +144,74 @@ export default function Sidebar({ onSettings, onModelSelect, onNetworkDiscovery,
   };
 
   const handleQuickScan = async () => {
-    setDiscoveryState(prev => ({ ...prev, scanning: true }));
-    
     try {
-      // This will be implemented when you add the Electron API
-      console.log('Starting network scan...');
-      // Mock for now
-      setTimeout(() => {
-        setDiscoveryState(prev => ({ 
-          ...prev, 
-          scanning: false, 
-          lastScan: new Date(),
-          discoveredDevices: [
-            {
-              id: '1',
-              name: 'Ollama Server',
-              host: '192.168.1.100',
-              port: 11434,
-              type: 'ollama',
-              status: 'discovered'
-            }
-          ]
-        }));
-      }, 3000);
+      await startNetworkScan();
     } catch (error) {
       console.error('Failed to start network scan:', error);
-      setDiscoveryState(prev => ({ ...prev, scanning: false }));
+    }
+  };
+
+  const handleDashboardClick = () => {
+    if (onViewChange) {
+      onViewChange('chat');
+    } else {
+      window.location.reload(); // Fallback for legacy usage
+    }
+  };
+
+  const handleNetworkViewClick = () => {
+    if (onViewChange) {
+      onViewChange('network');
+    } else if (onNetworkDiscovery) {
+      onNetworkDiscovery(); // Fallback for modal-based approach
     }
   };
 
   useEffect(() => {
     fetchModels();
-    // Refresh every 5 seconds
-    const interval = setInterval(fetchModels, 5000);
+    refreshNetworkDevices();
+    
+    // Refresh every 30 seconds (reduced from 5 seconds for better performance)
+    const interval = setInterval(() => {
+      fetchModels();
+      if (!networkScanning) {
+        refreshNetworkDevices();
+      }
+    }, 30000);
+    
     return () => clearInterval(interval);
-  }, [fetchModels]);
+  }, [fetchModels, refreshNetworkDevices, networkScanning]);
 
-  // Use mockModels if models from store are empty (for development)
-  const displayModels = models.length > 0 ? models : mockModels;
+  // Use store models if available, fallback to mock for development
+  const displayModels = models.length > 0 ? models.map(model => ({
+    ...model,
+    type: model.type as 'cloud' | 'local',
+    status: model.status as Model['status'],
+    role: 'Assistant', // Default role if not provided
+    callsUsed: 0, // Default values for UI
+    callLimit: -1,
+    performance: {
+      successRate: 95,
+      avgResponseTime: 1.5,
+      qualityScore: 8.5
+    }
+  })) : mockModels;
+
+  // Calculate discovery stats
+  const discoveredCount = networkDevices.length;
+  const newDevicesCount = networkDevices.filter(d => d.status === 'discovered').length;
 
   return (
     <div className="w-80 bg-gray-50 h-full flex flex-col overflow-hidden border-r border-gray-200">
       {/* Dashboard/Home Button */}
       <div className="p-4 border-b border-gray-200">
         <button
-          className="w-full px-4 py-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow flex items-center justify-center space-x-2 border border-gray-200"
-          onClick={() => window.location.reload()} // Reset to default view
+          className={`w-full px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-shadow flex items-center justify-center space-x-2 border ${
+            currentView === 'chat' 
+              ? 'bg-blue-50 border-blue-200 text-blue-700' 
+              : 'bg-white border-gray-200'
+          }`}
+          onClick={handleDashboardClick}
         >
           <span className="text-xl">🏠</span>
           <span className="font-medium">Dashboard</span>
@@ -203,20 +221,22 @@ export default function Sidebar({ onSettings, onModelSelect, onNetworkDiscovery,
 
       {/* Network Discovery Card */}
       <div className="px-4 pb-2">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-3">
+        <div className={`bg-white rounded-lg shadow-sm border overflow-hidden cursor-pointer transition-all ${
+          currentView === 'network' ? 'border-blue-200 bg-blue-50' : 'border-gray-200'
+        }`}>
+          <div className="p-3" onClick={handleNetworkViewClick}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
                 <span className="text-lg">🔍</span>
                 <h3 className="font-medium text-gray-900">Network Discovery</h3>
               </div>
               <div className="flex items-center space-x-1">
-                {discoveryState.scanning && (
+                {networkScanning && (
                   <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                 )}
-                {discoveryState.newDevicesCount > 0 && (
+                {newDevicesCount > 0 && (
                   <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                    {discoveryState.newDevicesCount} new
+                    {newDevicesCount} new
                   </span>
                 )}
               </div>
@@ -225,10 +245,10 @@ export default function Sidebar({ onSettings, onModelSelect, onNetworkDiscovery,
             {/* Status Line */}
             <div className="text-sm text-gray-600 mb-3">
               <div className="flex justify-between">
-                <span>Last scan: {formatLastScan(discoveryState.lastScan)}</span>
-                <span>{discoveryState.discoveredDevices.length} devices</span>
+                <span>Last scan: {formatLastScan(networkLastScan)}</span>
+                <span>{discoveredCount} devices</span>
               </div>
-              {discoveryState.scanning && (
+              {networkScanning && (
                 <div className="text-xs text-blue-600 mt-1">
                   Scanning network...
                 </div>
@@ -239,22 +259,31 @@ export default function Sidebar({ onSettings, onModelSelect, onNetworkDiscovery,
             <div className="flex space-x-2">
               <button
                 className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1"
-                onClick={handleQuickScan}
-                disabled={discoveryState.scanning}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleQuickScan();
+                }}
+                disabled={networkScanning}
               >
                 <span>🔍</span>
-                <span>{discoveryState.scanning ? 'Scanning...' : 'Quick Scan'}</span>
+                <span>{networkScanning ? 'Scanning...' : 'Quick Scan'}</span>
               </button>
               <button
                 className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors flex items-center justify-center"
-                onClick={onScanSettings}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onScanSettings?.();
+                }}
                 title="Scan Settings"
               >
                 <span>⚙️</span>
               </button>
               <button
                 className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors flex items-center justify-center space-x-1"
-                onClick={onNetworkDiscovery}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNetworkViewClick();
+                }}
               >
                 <span>📋</span>
                 <span>Manage</span>
@@ -262,11 +291,11 @@ export default function Sidebar({ onSettings, onModelSelect, onNetworkDiscovery,
             </div>
 
             {/* Recent Discoveries Preview */}
-            {discoveryState.discoveredDevices.length > 0 && (
+            {networkDevices.length > 0 && (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <div className="text-xs text-gray-500 mb-2">Recent discoveries:</div>
                 <div className="space-y-1">
-                  {discoveryState.discoveredDevices.slice(0, 2).map((device) => (
+                  {networkDevices.slice(0, 2).map((device) => (
                     <div key={device.id} className="flex items-center justify-between text-xs">
                       <div className="flex items-center space-x-2">
                         <span className={`w-2 h-2 rounded-full ${
@@ -280,9 +309,9 @@ export default function Sidebar({ onSettings, onModelSelect, onNetworkDiscovery,
                       <span className="text-gray-500">{device.type}</span>
                     </div>
                   ))}
-                  {discoveryState.discoveredDevices.length > 2 && (
+                  {networkDevices.length > 2 && (
                     <div className="text-xs text-gray-400 text-center pt-1">
-                      +{discoveryState.discoveredDevices.length - 2} more
+                      +{networkDevices.length - 2} more
                     </div>
                   )}
                 </div>
@@ -405,7 +434,11 @@ export default function Sidebar({ onSettings, onModelSelect, onNetworkDiscovery,
       {/* Settings Button (moved to bottom) */}
       <div className="p-4 border-t border-gray-200">
         <button
-          className="w-full px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg flex items-center justify-center space-x-2 transition-colors"
+          className={`w-full px-3 py-2 rounded-lg flex items-center justify-center space-x-2 transition-colors ${
+            currentView === 'settings' 
+              ? 'bg-blue-100 text-blue-700' 
+              : 'bg-gray-200 hover:bg-gray-300'
+          }`}
           onClick={onSettings}
         >
           <span>⚙️</span>

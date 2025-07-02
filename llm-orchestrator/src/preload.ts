@@ -15,11 +15,6 @@ contextBridge.exposeInMainWorld('api', {
 
 // Network Discovery and Device Management API
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Window Controls
-  minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
-  maximizeWindow: () => ipcRenderer.invoke('window-maximize'),
-  closeWindow: () => ipcRenderer.invoke('window-close'),
-  
   // Network Discovery
   startNetworkScan: () => 
     ipcRenderer.invoke(ELECTRON_CHANNELS.DISCOVERY_START_SCAN),
@@ -71,5 +66,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(ELECTRON_CHANNELS.CONFIG_EXPORT),
   
   importConfig: (configPath: string) => 
-    ipcRenderer.invoke(ELECTRON_CHANNELS.CONFIG_IMPORT, configPath)
+    ipcRenderer.invoke(ELECTRON_CHANNELS.CONFIG_IMPORT, configPath),
+
+  // Window State Event Listeners (keep these for state tracking)
+  onWindowStateChanged: (callback: (state: { maximized: boolean; fullscreen?: boolean }) => void) => {
+    const listener = (_event: any, state: any) => callback(state);
+    ipcRenderer.on('window-state-changed', listener);
+    return () => ipcRenderer.removeListener('window-state-changed', listener);
+  },
+
+  onHealthUpdate: (callback: (health: any) => void) => {
+    const listener = (_event: any, health: any) => callback(health);
+    ipcRenderer.on('health-update', listener);
+    return () => ipcRenderer.removeListener('health-update', listener);
+  },
+
+  // Manual Refresh and System Health
+  refreshAllData: () => 
+    ipcRenderer.invoke('refresh-all-data'),
+  
+  getSystemHealth: () => 
+    ipcRenderer.invoke('get-system-health')
 });

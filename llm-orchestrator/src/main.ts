@@ -4,7 +4,7 @@ import { sendPrompt, getAvailableModels, getModelStatus, LLMRequest } from './ll
 import { API_CONFIG, ELECTRON_CHANNELS } from './config';
 import axios from 'axios';
 
-// Vite build variables
+// Add this declaration for Vite's special variables
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
@@ -16,23 +16,46 @@ function createWindow() {
     height: 900,
     minWidth: 800,
     minHeight: 600,
-    frame: false,
+    // CHANGE: Use native frame with dark styling
+    frame: true,
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     resizable: true,
     webPreferences: {
       preload: join(__dirname, 'preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false
     },
+    // Dark window styling
     backgroundColor: '#1a1a1a',
     show: false,
-    titleBarStyle: 'customButtonsOnHover',
     icon: join(__dirname, 'assets/icon.png'),
     webSecurity: true,
+    // Add dark theme for native controls
+    ...(process.platform === 'win32' && {
+      titleBarOverlay: {
+        color: '#1a1a1a',
+        symbolColor: '#ffffff'
+      }
+    }),
+    // macOS dark appearance
+    ...(process.platform === 'darwin' && {
+      vibrancy: 'ultra-dark',
+      visualEffectState: 'active'
+    })
   });
 
-  // Smooth window appearance
+  // Smooth window appearance with fade-in
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    
+    // Set dark theme for Windows
+    if (process.platform === 'win32') {
+      mainWindow.setTitleBarOverlay({
+        color: '#1a1a1a',
+        symbolColor: '#ffffff',
+        height: 32
+      });
+    }
     
     // Fade-in animation
     mainWindow.setOpacity(0);
@@ -54,58 +77,39 @@ function createWindow() {
     mainWindow.loadFile(join(__dirname, `renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
 
-  // Window state change events
+  // Simple window state events (no complex bounds calculations needed!)
   mainWindow.on('maximize', () => {
-    mainWindow.webContents.send('window-state-changed', { maximized: true });
+    console.log('Window maximized');
+    mainWindow.webContents.send('window-state-changed', { 
+      maximized: true,
+      fullscreen: false 
+    });
   });
 
   mainWindow.on('unmaximize', () => {
-    mainWindow.webContents.send('window-state-changed', { maximized: false });
+    console.log('Window unmaximized');
+    mainWindow.webContents.send('window-state-changed', { 
+      maximized: false,
+      fullscreen: false 
+    });
+  });
+
+  mainWindow.on('enter-full-screen', () => {
+    console.log('Window entered fullscreen');
+    mainWindow.webContents.send('window-state-changed', { 
+      maximized: false, 
+      fullscreen: true 
+    });
+  });
+
+  mainWindow.on('leave-full-screen', () => {
+    console.log('Window left fullscreen');
+    mainWindow.webContents.send('window-state-changed', { 
+      maximized: mainWindow.isMaximized(), 
+      fullscreen: false 
+    });
   });
 }
-
-// === IPC HANDLERS ===
-
-// Window Controls
-ipcMain.handle('window-minimize', () => {
-  if (mainWindow) {
-    mainWindow.minimize();
-  }
-});
-
-ipcMain.handle('window-maximize', () => {
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) {
-      mainWindow.restore();
-    } else {
-      mainWindow.maximize();
-    }
-  }
-});
-
-ipcMain.handle('window-close', () => {
-  if (mainWindow) {
-    mainWindow.close();
-  }
-});
-
-// LLM Communication
-ipcMain.handle(ELECTRON_CHANNELS.LLM_INVOKE, async (_event, prompt: string, framework?: string) => {
-  try {
-    const request: LLMRequest = {
-      prompt,
-      framework: framework || 'BMAD-METHOD'
-    };
-    const result = await sendPrompt(request);
-    return result;
-  } catch (err: any) {
-    return {
-      success: false,
-      error: err.message || err,
-      response: `Error: ${err.message || err}`
-    };
-  }
-});
 
 // Network Discovery Handlers
 ipcMain.handle(ELECTRON_CHANNELS.DISCOVERY_START_SCAN, async () => {
@@ -207,11 +211,222 @@ ipcMain.handle(ELECTRON_CHANNELS.CONFIG_EXPORT, async () => {
   }
 });
 
-// === APP EVENT HANDLERS ===
+// Window Control Handlers (SINGLE REGISTRATION ONLY)
+ipcMain.handle('window-minimize', () => {
+  console.log('Minimize requested');
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.minimize();
+    return true;
+  }
+  return false;
+});
 
+ipcMain.handle('window-maximize', () => {
+  console.log('Maximize/unmaximize requested');
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      // Get the display the window is on
+      const { screen } = require('electron');
+      const display = screen.getDisplayMatching(mainWindow.getBounds());
+      
+      // Use workArea instead of bounds to respect taskbars/docks
+      const { workArea } = display;
+      
+      console.log('Display work area:', workArea);
+      
+      // Set window to fill the work area exactly
+      mainWindow.setBounds({
+        x: workArea.x,
+        y: workArea.y,
+        width: workArea.width,
+        height: workArea.height
+      });
+      
+      // Force the window to be considered "maximized"
+      mainWindow.maximize();
+    }
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('window-close', () => {
+  console.log('Close requested');
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.close();
+    return true;
+  }
+  return false;
+});
+
+// Enhanced window state queries
+ipcMain.handle('window-get-state', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return {
+      isMaximized: mainWindow.isMaximized(),
+      isMinimized: mainWindow.isMinimized(),
+      isFullScreen: mainWindow.isFullScreen(),
+      isFocused: mainWindow.isFocused(),
+      bounds: mainWindow.getBounds()
+    };
+  }
+  return null;
+});
+
+// Add a manual viewport fix handler
+ipcMain.handle('window-fix-viewport', () => {
+  console.log('Fixing viewport to match display');
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const { screen } = require('electron');
+    const display = screen.getDisplayMatching(mainWindow.getBounds());
+    const { workArea } = display;
+    
+    console.log('Setting bounds to work area:', workArea);
+    
+    mainWindow.setBounds({
+      x: workArea.x,
+      y: workArea.y,
+      width: workArea.width,
+      height: workArea.height
+    });
+    
+    return {
+      success: true,
+      workArea,
+      currentBounds: mainWindow.getBounds()
+    };
+  }
+  return { success: false };
+});
+
+// Force window refresh (emergency fix)
+ipcMain.handle('window-force-refresh', () => {
+  console.log('Force refresh requested');
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    // Force window to refresh its state
+    const currentBounds = mainWindow.getBounds();
+    mainWindow.setBounds({
+      ...currentBounds,
+      width: currentBounds.width + 1
+    });
+    setTimeout(() => {
+      mainWindow.setBounds(currentBounds);
+    }, 50);
+    return true;
+  }
+  return false;
+});
+
+// Health check handler
+ipcMain.handle('get-system-health', async () => {
+  try {
+    const orchestratorHealth = await axios.get(`${API_CONFIG.orchestratorUrl}/health`);
+
+    const services = {
+      orchestrator: orchestratorHealth.data,
+      timestamp: new Date().toISOString()
+    };
+
+    return services;
+  } catch (error: any) {
+    return {
+      orchestrator: { status: 'error', error: error.message },
+      timestamp: new Date().toISOString()
+    };
+  }
+});
+
+// Manual refresh handler for components
+ipcMain.handle('refresh-all-data', async () => {
+  try {
+    const [discoveryState, systemHealth] = await Promise.all([
+      axios.get(`${API_CONFIG.orchestratorUrl}/api/discovery/state`).catch(() => null),
+      axios.get(`${API_CONFIG.orchestratorUrl}/health`).catch(() => null)
+    ]);
+
+    const refreshData = {
+      discovery: discoveryState?.data || null,
+      health: systemHealth?.data || null,
+      timestamp: new Date().toISOString()
+    };
+
+    // Broadcast updates to renderer
+    if (mainWindow) {
+      if (refreshData.discovery) {
+        mainWindow.webContents.send(ELECTRON_CHANNELS.DISCOVERY_UPDATE, refreshData.discovery);
+      }
+      if (refreshData.health) {
+        mainWindow.webContents.send('health-update', refreshData.health);
+      }
+    }
+
+    return refreshData;
+  } catch (error: any) {
+    console.error('Failed to refresh all data:', error);
+    return { error: error.message };
+  }
+});
+
+// Real-time updates via WebSocket
+function setupRealtimeUpdates() {
+  console.log('Setting up real-time WebSocket bridge...');
+  
+  // Set up periodic heartbeat to backend services
+  const heartbeatInterval = setInterval(async () => {
+    try {
+      // Check orchestrator health
+      const healthCheck = await axios.get(`${API_CONFIG.orchestratorUrl}/health`);
+      
+      // Broadcast health status to renderer if needed
+      if (mainWindow && healthCheck.data) {
+        mainWindow.webContents.send('health-update', {
+          orchestrator: healthCheck.data,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Health check failed:', error);
+      if (mainWindow) {
+        mainWindow.webContents.send('health-update', {
+          orchestrator: { status: 'error', error: error.message },
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  }, 30000); // Every 30 seconds
+
+  // Set up network discovery update polling
+  const discoveryInterval = setInterval(async () => {
+    try {
+      const response = await axios.get(`${API_CONFIG.orchestratorUrl}/api/discovery/state`);
+      
+      if (mainWindow && response.data) {
+        mainWindow.webContents.send(ELECTRON_CHANNELS.DISCOVERY_UPDATE, response.data);
+      }
+    } catch (error) {
+      // Silently handle discovery polling errors
+      console.debug('Discovery state polling failed:', error.message);
+    }
+  }, 10000); // Every 10 seconds
+
+  // Cleanup function
+  const cleanup = () => {
+    clearInterval(heartbeatInterval);
+    clearInterval(discoveryInterval);
+  };
+
+  // Store cleanup for app shutdown
+  app.on('before-quit', cleanup);
+  
+  console.log('Real-time updates active: health checks every 30s, discovery updates every 10s');
+}
+
+// App Event Handlers
 app.whenReady().then(() => {
   createWindow();
-  console.log('🚀 AI-Agentic Overseer ready');
+  setupRealtimeUpdates();
 });
 
 app.on('window-all-closed', () => {
@@ -226,6 +441,8 @@ app.on('activate', () => {
   }
 });
 
+// Graceful shutdown
 app.on('before-quit', () => {
-  console.log('📱 Application shutting down...');
+  // Cleanup any ongoing network scans or connections
+  console.log('Application shutting down...');
 });
