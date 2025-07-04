@@ -21,6 +21,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowClose: () => ipcRenderer.invoke('window-close'),
   getWindowState: () => ipcRenderer.invoke('window-get-state'),
   
+  zoomIn: () => ipcRenderer.invoke('zoom-in'),
+  zoomOut: () => ipcRenderer.invoke('zoom-out'),
+  resetZoom: () => ipcRenderer.invoke('reset-zoom'),
+  
   // Window State Event Listeners
   onWindowStateChanged: (callback: (state: { maximized: boolean; fullscreen: boolean }) => void) => {
     const listener = (_event: any, data: any) => callback(data);
@@ -202,7 +206,10 @@ declare global {
         isFocused: boolean;
         bounds: any;
       } | null>;
-      
+      zoomIn: () => Promise<void>;
+	  zoomOut: () => Promise<void>;
+	  resetZoom: () => Promise<void>;
+	  
       // Event Listeners
       onWindowStateChanged: (callback: (state: { maximized: boolean; fullscreen: boolean }) => void) => () => void;
       onWindowFocusChanged: (callback: (state: { focused: boolean }) => void) => () => void;

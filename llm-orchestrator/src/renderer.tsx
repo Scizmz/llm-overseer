@@ -5,7 +5,6 @@ import './native.css';
 
 // Import your existing components
 import ChatPanel from './components/ChatPanel';
-import NetworkDashboard from './components/NetworkDashboard';
 import SettingsPanel from './components/SettingsPanel';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
@@ -217,8 +216,26 @@ function App() {
       }
     };
 
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+        // Zoom in (wheel up)
+          window.electronAPI?.zoomIn?.();
+        } else {
+        // Zoom out (wheel down)
+          window.electronAPI?.zoomOut?.();
+        }
+      }
+    };
+	
     window.addEventListener('keydown', handleKeydown);
-    return () => window.removeEventListener('keydown', handleKeydown);
+	window.addEventListener('wheel', handleWheel, { passive: false });
+	
+    return () => {
+	  window.removeEventListener('wheel', handleWheel);
+	  window.removeEventListener('keydown', handleKeydown);
+	};
   }, []);
 
   // Generate CSS classes for the app container
@@ -249,23 +266,19 @@ function App() {
       <div className="main-content">
         
         {/* Left Panel - Sidebar */}
-        <div className="sidebar-container">
-          <Sidebar
-            onSettings={() => setCurrentView('settings')}
-            onViewChange={setCurrentView}
-            currentView={currentView}
-          />
-        </div>
+        
+        <Sidebar
+          onSettings={() => setCurrentView('settings')}
+          onViewChange={setCurrentView}
+          currentView={currentView}
+        />
+        
 
         {/* Main Content */}
         <div className="content-container">
           {/* Content based on current view */}
           {currentView === 'chat' && (
             <ChatPanel />
-          )}
-          
-          {currentView === 'network' && (
-            <NetworkDashboard />
           )}
           
           {currentView === 'settings' && (
