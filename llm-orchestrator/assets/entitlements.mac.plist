@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Hardened Runtime entitlements -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    
+    <!-- Network access -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+    
+    <!-- File system access -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+    
+    <!-- Camera/microphone access (for future AI features) -->
+    <key>com.apple.security.device.camera</key>
+    <true/>
+    <key>com.apple.security.device.microphone</key>
+    <true/>
+    
+    <!-- Bluetooth and USB access (for device discovery) -->
+    <key>com.apple.security.device.bluetooth</key>
+    <true/>
+    <key>com.apple.security.device.usb</key>
+    <true/>
+    
+    <!-- App sandbox (disabled for full system access) -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    
+    <!-- Automation and accessibility -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+    
+    <!-- Print access -->
+    <key>com.apple.security.print</key>
+    <true/>
+    
+    <!-- Address book access (for future contact integration) -->
+    <key>com.apple.security.personal-information.addressbook</key>
+    <true/>
+    
+    <!-- Calendar access (for scheduling AI tasks) -->
+    <key>com.apple.security.personal-information.calendars</key>
+    <true/>
+    
+    <!-- Location services (for geo-based AI routing) -->
+    <key>com.apple.security.personal-information.location</key>
+    <true/>
+    
+    <!-- Photos access (for AI image processing) -->
+    <key>com.apple.security.personal-information.photos-library</key>
+    <true/>
+  </dict>
+</plist>

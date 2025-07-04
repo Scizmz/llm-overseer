@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "../store";
 
-// Type definitions for models (keeping local interface for UI-specific properties)
+// Enhanced Model interface for native UI
 interface Model {
   id: string;
   name: string;
@@ -28,35 +28,51 @@ interface SidebarProps {
   currentView?: 'chat' | 'network' | 'settings';
 }
 
-// Mock data for development with enhanced UI properties
+// Enhanced mock data with better visual properties
 const mockModels: Model[] = [
   {
-    id: '1',
-    name: 'GPT-4',
+    id: 'chatgpt-1',
+    name: 'CHAT-GPT',
+    type: 'cloud',
+    status: 'disconnected',
+    role: 'General Assistant',
+    callsUsed: 0,
+    callLimit: 100,
+    resetTime: '24h',
+    performance: {
+      successRate: 98,
+      avgResponseTime: 2.1,
+      qualityScore: 9.4
+    }
+  },
+  {
+    id: 'claude-1',
+    name: 'CLAUDE',
     type: 'cloud',
     status: 'ready',
-    role: 'Primary Assistant',
+    role: 'Researcher',
+    currentTask: 'Processing Assignment: Test driven coding',
     callsUsed: 45,
     callLimit: 100,
     resetTime: '2h 15m',
     performance: {
-      successRate: 98,
-      avgResponseTime: 2.3,
+      successRate: 96,
+      avgResponseTime: 1.8,
       qualityScore: 9.2
     }
   },
   {
-    id: '2',
-    name: 'Local Llama',
-    type: 'local',
+    id: 'gemini-1',
+    name: 'Google Gemini',
+    type: 'cloud',
     status: 'idle',
-    role: 'Code Assistant',
-    callsUsed: 0,
-    callLimit: -1,
+    role: 'Coder',
+    callsUsed: 12,
+    callLimit: 50,
     performance: {
-      successRate: 85,
-      avgResponseTime: 4.1,
-      qualityScore: 7.8
+      successRate: 94,
+      avgResponseTime: 2.7,
+      qualityScore: 8.8
     }
   }
 ];
@@ -70,9 +86,13 @@ export default function Sidebar({
   currentView = 'chat'
 }: SidebarProps) {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-  const [systemHealth, setSystemHealth] = useState<'healthy' | 'warning' | 'error'>('healthy');
+  const [connectionStats, setConnectionStats] = useState({
+    available: 3,
+    active: 2,
+    orchestrator: 'Online'
+  });
   
-  // Use store for all network-related state
+  // Use store for network-related state
   const { 
     models, 
     fetchModels,
@@ -95,16 +115,16 @@ export default function Sidebar({
 
   const getStatusColor = (status: Model['status']) => {
     switch (status) {
-      case 'processing': return 'bg-red-500';
-      case 'waiting': return 'bg-yellow-500';
-      case 'ready': return 'bg-green-500';
-      case 'idle': return 'bg-blue-500';
-      case 'disconnected': return 'bg-gray-500';
-      default: return 'bg-gray-400';
+      case 'processing': return '#ff6b6b';
+      case 'waiting': return '#ffa726';
+      case 'ready': return '#4caf50';
+      case 'idle': return '#42a5f5';
+      case 'disconnected': return '#666';
+      default: return '#999';
     }
   };
 
-  const getStatusEmoji = (status: Model['status']) => {
+  const getStatusIcon = (status: Model['status']) => {
     switch (status) {
       case 'processing': return '🔴';
       case 'waiting': return '🟡';
@@ -116,18 +136,15 @@ export default function Sidebar({
   };
 
   const getHealthIndicator = () => {
-    // Calculate health based on models and network devices
     const hasDisconnectedModels = displayModels.some(m => m.status === 'disconnected');
-    const hasFailedDevices = networkDevices.some(d => d.status === 'failed');
-    
-    if (hasDisconnectedModels || hasFailedDevices) return 'bg-red-500';
-    if (networkScanning) return 'bg-yellow-500';
-    return 'bg-green-500';
+    if (hasDisconnectedModels) return '#ff6b6b';
+    if (networkScanning) return '#ffa726';
+    return '#4caf50';
   };
 
   const getUsagePercentage = (used: number, limit: number) => {
-    if (limit === -1) return 0; // Unlimited
-    return (used / limit) * 100;
+    if (limit === -1) return 0;
+    return Math.min((used / limit) * 100, 100);
   };
 
   const formatLastScan = (lastScan: Date | null) => {
@@ -151,19 +168,9 @@ export default function Sidebar({
     }
   };
 
-  const handleDashboardClick = () => {
+  const handleViewChange = (view: 'chat' | 'network' | 'settings') => {
     if (onViewChange) {
-      onViewChange('chat');
-    } else {
-      window.location.reload(); // Fallback for legacy usage
-    }
-  };
-
-  const handleNetworkViewClick = () => {
-    if (onViewChange) {
-      onViewChange('network');
-    } else if (onNetworkDiscovery) {
-      onNetworkDiscovery(); // Fallback for modal-based approach
+      onViewChange(view);
     }
   };
 
@@ -171,7 +178,6 @@ export default function Sidebar({
     fetchModels();
     refreshNetworkDevices();
     
-    // Refresh every 30 seconds (reduced from 5 seconds for better performance)
     const interval = setInterval(() => {
       fetchModels();
       if (!networkScanning) {
@@ -183,146 +189,84 @@ export default function Sidebar({
   }, [fetchModels, refreshNetworkDevices, networkScanning]);
 
   // Use store models if available, fallback to mock for development
-  const displayModels = models.length > 0 ? models.map(model => ({
-    ...model,
-    type: model.type as 'cloud' | 'local',
-    status: model.status as Model['status'],
-    role: 'Assistant', // Default role if not provided
-    callsUsed: 0, // Default values for UI
-    callLimit: -1,
-    performance: {
-      successRate: 95,
-      avgResponseTime: 1.5,
-      qualityScore: 8.5
-    }
-  })) : mockModels;
-
-  // Calculate discovery stats
-  const discoveredCount = networkDevices.length;
-  const newDevicesCount = networkDevices.filter(d => d.status === 'discovered').length;
+  const displayModels = models.length > 0 ? 
+    models.map(model => ({
+      ...model,
+      type: model.type as 'cloud' | 'local',
+      status: model.status as Model['status'],
+      role: 'Assistant',
+      callsUsed: 0,
+      callLimit: -1,
+      performance: {
+        successRate: 95,
+        avgResponseTime: 1.5,
+        qualityScore: 8.5
+      }
+    })) : mockModels;
 
   return (
-    <div className="w-80 bg-gray-50 h-full flex flex-col overflow-hidden border-r border-gray-200">
-      {/* Dashboard/Home Button */}
-      <div className="p-4 border-b border-gray-200">
-        <button
-          className={`w-full px-4 py-3 rounded-lg shadow-sm hover:shadow-md transition-shadow flex items-center justify-center space-x-2 border ${
-            currentView === 'chat' 
-              ? 'bg-blue-50 border-blue-200 text-blue-700' 
-              : 'bg-white border-gray-200'
-          }`}
-          onClick={handleDashboardClick}
-        >
-          <span className="text-xl">🏠</span>
-          <span className="font-medium">Dashboard</span>
-          <span className={`w-2 h-2 rounded-full ${getHealthIndicator()} ml-auto`}></span>
-        </button>
-      </div>
-
-      {/* Network Discovery Card */}
-      <div className="px-4 pb-2">
-        <div className={`bg-white rounded-lg shadow-sm border overflow-hidden cursor-pointer transition-all ${
-          currentView === 'network' ? 'border-blue-200 bg-blue-50' : 'border-gray-200'
-        }`}>
-          <div className="p-3" onClick={handleNetworkViewClick}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🔍</span>
-                <h3 className="font-medium text-gray-900">Network Discovery</h3>
-              </div>
-              <div className="flex items-center space-x-1">
-                {networkScanning && (
-                  <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                )}
-                {newDevicesCount > 0 && (
-                  <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                    {newDevicesCount} new
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Status Line */}
-            <div className="text-sm text-gray-600 mb-3">
-              <div className="flex justify-between">
-                <span>Last scan: {formatLastScan(networkLastScan)}</span>
-                <span>{discoveredCount} devices</span>
-              </div>
-              {networkScanning && (
-                <div className="text-xs text-blue-600 mt-1">
-                  Scanning network...
-                </div>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex space-x-2">
-              <button
-                className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleQuickScan();
-                }}
-                disabled={networkScanning}
-              >
-                <span>🔍</span>
-                <span>{networkScanning ? 'Scanning...' : 'Quick Scan'}</span>
-              </button>
-              <button
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors flex items-center justify-center"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onScanSettings?.();
-                }}
-                title="Scan Settings"
-              >
-                <span>⚙️</span>
-              </button>
-              <button
-                className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors flex items-center justify-center space-x-1"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNetworkViewClick();
-                }}
-              >
-                <span>📋</span>
-                <span>Manage</span>
-              </button>
-            </div>
-
-            {/* Recent Discoveries Preview */}
-            {networkDevices.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <div className="text-xs text-gray-500 mb-2">Recent discoveries:</div>
-                <div className="space-y-1">
-                  {networkDevices.slice(0, 2).map((device) => (
-                    <div key={device.id} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center space-x-2">
-                        <span className={`w-2 h-2 rounded-full ${
-                          device.status === 'connected' ? 'bg-green-500' :
-                          device.status === 'connecting' ? 'bg-yellow-500' :
-                          device.status === 'failed' ? 'bg-red-500' :
-                          'bg-gray-400'
-                        }`}></span>
-                        <span className="text-gray-700">{device.name}</span>
-                      </div>
-                      <span className="text-gray-500">{device.type}</span>
-                    </div>
-                  ))}
-                  {networkDevices.length > 2 && (
-                    <div className="text-xs text-gray-400 text-center pt-1">
-                      +{networkDevices.length - 2} more
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+    <div style={{
+      width: '100%',
+      height: '100%',
+      backgroundColor: '#1e1e1e',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
+      
+      {/* Network Dashboard Header */}
+      <div style={{
+        padding: '16px 12px',
+        borderBottom: '1px solid #333'
+      }}>
+        <h2 style={{ 
+          fontSize: '18px', 
+          fontWeight: '600',
+          margin: '0 0 12px 0',
+          color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          Network Dashboard
+          <div style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: getHealthIndicator(),
+            marginLeft: 'auto'
+          }} />
+        </h2>
+        
+        {/* Connection Stats */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
+          gap: '8px',
+          fontSize: '10px',
+          color: '#ccc'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#4caf50', fontWeight: '600' }}>{connectionStats.available}</div>
+            <div>Available</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#42a5f5', fontWeight: '600' }}>{connectionStats.active}</div>
+            <div>Active</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: getHealthIndicator(), fontWeight: '600' }}>•</div>
+            <div>Online</div>
           </div>
         </div>
       </div>
 
-      {/* Model Cards Container */}
-      <div className="flex-1 overflow-y-auto p-4 pt-2 space-y-3">
+      {/* Models List */}
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: '12px'
+      }}>
         {displayModels.map((model) => {
           const isExpanded = expandedCards.has(model.id);
           const usagePercent = getUsagePercentage(model.callsUsed, model.callLimit);
@@ -330,100 +274,221 @@ export default function Sidebar({
           return (
             <div
               key={model.id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden transition-all duration-200"
+              style={{
+                backgroundColor: '#2a2a2a',
+                borderRadius: '8px',
+                marginBottom: '8px',
+                border: '1px solid #404040',
+                overflow: 'hidden',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#2e2e2e';
+                e.currentTarget.style.borderColor = '#555';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#2a2a2a';
+                e.currentTarget.style.borderColor = '#404040';
+              }}
             >
-              {/* Card Header (Always Visible) */}
+              {/* Model Header */}
               <div
-                className="p-3 cursor-pointer hover:bg-gray-50"
+                style={{
+                  padding: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
                 onClick={() => toggleCard(model.id)}
               >
-                <div className="flex items-start space-x-2">
-                  <span className="text-lg mt-0.5">{getStatusEmoji(model.status)}</span>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-gray-900">{model.name}</h3>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                        {model.type}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">Role: {model.role}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Status: {model.status.charAt(0).toUpperCase() + model.status.slice(1)}
-                    </p>
-                    
-                    {/* Rate Limit Info */}
-                    {model.callLimit !== -1 && (
-                      <div className="mt-2">
-                        <div className="flex justify-between text-xs text-gray-600 mb-1">
-                          <span>Calls: {model.callsUsed}/{model.callLimit}</span>
-                          {model.resetTime && <span>Reset in: {model.resetTime}</span>}
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all duration-300 ${
-                              usagePercent > 80 ? 'bg-red-500' : 
-                              usagePercent > 50 ? 'bg-yellow-500' : 
-                              'bg-green-500'
-                            }`}
-                            style={{ width: `${usagePercent}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                {/* Status Indicator */}
+                <div style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: getStatusColor(model.status),
+                  flexShrink: 0
+                }} />
+                
+                {/* Model Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: '#fff',
+                    marginBottom: '2px'
+                  }}>
+                    {model.name}
                   </div>
+                  <div style={{
+                    fontSize: '10px',
+                    color: '#888',
+                    textTransform: 'capitalize'
+                  }}>
+                    {model.status === 'ready' ? 'Connected: Thinking' : 
+                     model.status === 'disconnected' ? 'Disconnected' :
+                     model.status === 'idle' ? 'Connected: Idle' :
+                     model.status}
+                  </div>
+                  {model.role && (
+                    <div style={{
+                      fontSize: '9px',
+                      color: '#666',
+                      marginTop: '2px'
+                    }}>
+                      Role: {model.role}
+                    </div>
+                  )}
+                </div>
+
+                {/* Expand Arrow */}
+                <div style={{
+                  fontSize: '10px',
+                  color: '#666',
+                  transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s ease'
+                }}>
+                  ▼
                 </div>
               </div>
 
+              {/* Usage Bar (if applicable) */}
+              {model.callLimit > 0 && (
+                <div style={{
+                  paddingLeft: '12px',
+                  paddingRight: '12px',
+                  paddingBottom: isExpanded ? '8px' : '12px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '9px',
+                    color: '#888',
+                    marginBottom: '4px'
+                  }}>
+                    <span>{model.callsUsed} calls</span>
+                    <span>{model.resetTime}</span>
+                  </div>
+                  <div style={{
+                    height: '2px',
+                    backgroundColor: '#404040',
+                    borderRadius: '1px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      height: '100%',
+                      backgroundColor: usagePercent > 80 ? '#ff6b6b' : 
+                                      usagePercent > 60 ? '#ffa726' : '#4caf50',
+                      width: `${usagePercent}%`,
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                </div>
+              )}
+
               {/* Expanded Content */}
               {isExpanded && (
-                <div className="px-3 pb-3 border-t border-gray-100 mt-2 pt-3 text-sm">
-                  <div className="space-y-2">
-                    {/* Detailed Status */}
-                    <div className="bg-gray-50 p-2 rounded">
-                      <p className="font-medium text-gray-700 mb-1">Detailed Status:</p>
-                      <p className="text-xs text-gray-600">
-                        {model.currentTask ? 
-                          `Currently ${model.status}: ${model.currentTask}` : 
-                          `Model is ${model.status} and available for tasks`
-                        }
-                      </p>
-                    </div>
-
-                    {/* Performance Metrics */}
-                    {model.performance && (
-                      <div className="bg-gray-50 p-2 rounded">
-                        <p className="font-medium text-gray-700 mb-1">Performance:</p>
-                        <div className="grid grid-cols-2 gap-1 text-xs">
-                          <span>Success Rate:</span>
-                          <span className="text-right">{model.performance.successRate}%</span>
-                          <span>Avg Response:</span>
-                          <span className="text-right">{model.performance.avgResponseTime}s</span>
-                          <span>Quality Score:</span>
-                          <span className="text-right">{model.performance.qualityScore}/10</span>
-                        </div>
+                <div style={{
+                  padding: '0 12px 12px 12px',
+                  borderTop: '1px solid #404040',
+                  marginTop: '8px',
+                  paddingTop: '12px'
+                }}>
+                  {/* Current Task */}
+                  {model.currentTask && (
+                    <div style={{
+                      backgroundColor: '#333',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      marginBottom: '8px'
+                    }}>
+                      <div style={{
+                        fontSize: '9px',
+                        color: '#888',
+                        marginBottom: '4px'
+                      }}>
+                        Current Task:
                       </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex space-x-2 mt-2">
-                      <button 
-                        className="flex-1 px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs hover:bg-blue-100"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onModelSelect?.(model.id);
-                        }}
-                      >
-                        View Details
-                      </button>
-                      <button className="flex-1 px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200">
-                        Configure
-                      </button>
+                      <div style={{
+                        fontSize: '10px',
+                        color: '#fff'
+                      }}>
+                        {model.currentTask}
+                      </div>
                     </div>
+                  )}
+
+                  {/* Performance Metrics */}
+                  {model.performance && (
+                    <div style={{
+                      backgroundColor: '#333',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      marginBottom: '8px'
+                    }}>
+                      <div style={{
+                        fontSize: '9px',
+                        color: '#888',
+                        marginBottom: '4px'
+                      }}>
+                        Performance:
+                      </div>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '4px',
+                        fontSize: '9px',
+                        color: '#fff'
+                      }}>
+                        <span>Success: {model.performance.successRate}%</span>
+                        <span>Avg: {model.performance.avgResponseTime}s</span>
+                        <span>Quality: {model.performance.qualityScore}/10</span>
+                        <span>Type: {model.type}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr 1fr',
+                    gap: '4px'
+                  }}>
+                    <button style={{
+                      backgroundColor: '#404040',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '6px 4px',
+                      color: '#fff',
+                      fontSize: '9px',
+                      cursor: 'pointer'
+                    }}>
+                      Prompt Settings
+                    </button>
+                    <button style={{
+                      backgroundColor: '#404040',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '6px 4px',
+                      color: '#fff',
+                      fontSize: '9px',
+                      cursor: 'pointer'
+                    }}>
+                      Model Notes
+                    </button>
+                    <button style={{
+                      backgroundColor: '#404040',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '6px 4px',
+                      color: '#fff',
+                      fontSize: '9px',
+                      cursor: 'pointer'
+                    }}>
+                      API dash
+                    </button>
                   </div>
-                  
-                  <p className="text-xs text-gray-400 mt-2 text-right">
-                    Last Update: {new Date().toLocaleTimeString()}
-                  </p>
                 </div>
               )}
             </div>
@@ -431,20 +496,86 @@ export default function Sidebar({
         })}
       </div>
 
-      {/* Settings Button (moved to bottom) */}
-      <div className="p-4 border-t border-gray-200">
-        <button
-          className={`w-full px-3 py-2 rounded-lg flex items-center justify-center space-x-2 transition-colors ${
-            currentView === 'settings' 
-              ? 'bg-blue-100 text-blue-700' 
-              : 'bg-gray-200 hover:bg-gray-300'
-          }`}
-          onClick={onSettings}
-        >
-          <span>⚙️</span>
-          <span>Settings</span>
-        </button>
+      {/* Network Scan Controls */}
+      <div style={{
+        padding: '12px',
+        borderTop: '1px solid #333'
+      }}>
+        <div style={{
+          backgroundColor: '#2a2a2a',
+          borderRadius: '8px',
+          padding: '12px',
+          border: '1px solid #404040'
+        }}>
+          <div style={{
+            fontSize: '11px',
+            color: '#ccc',
+            marginBottom: '8px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>Connections Available: {connectionStats.available}</span>
+            <span style={{ color: '#888' }}>
+              Last scan: {formatLastScan(networkLastScan)}
+            </span>
+          </div>
+          
+          <button
+            onClick={handleQuickScan}
+            disabled={networkScanning}
+            style={{
+              width: '100%',
+              padding: '8px',
+              backgroundColor: networkScanning ? '#555' : '#007acc',
+              border: 'none',
+              borderRadius: '4px',
+              color: '#fff',
+              fontSize: '11px',
+              cursor: networkScanning ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            {networkScanning ? (
+              <>
+                <span style={{ animation: 'spin 1s linear infinite' }}>⟳</span>
+                Scanning...
+              </>
+            ) : (
+              <>
+                <span>🔍</span>
+                Network Scan
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Bottom Status */}
+      <div style={{
+        padding: '8px 12px',
+        borderTop: '1px solid #333',
+        fontSize: '9px',
+        color: '#666',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <span>Orchestrator: {connectionStats.orchestrator}</span>
+        <span>{new Date().toLocaleTimeString()}</span>
+      </div>
+
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 }

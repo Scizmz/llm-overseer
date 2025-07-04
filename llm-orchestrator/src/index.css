@@ -1,15 +1,13 @@
-/* Completely reset and use basic CSS for layout debugging */
-* {
-  box-sizing: border-box;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global styles for better native frame integration */
+html, body {
   margin: 0;
   padding: 0;
-}
-
-html, body {
-  height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: #1a1a1a; /* Dark background */
-  color: #ffffff; /* Light text */
+  overflow: hidden; /* Prevent scrollbars on main window */
 }
 
 #root {
@@ -19,107 +17,89 @@ html, body {
   flex-direction: column;
 }
 
-/* Force the main layout */
-.app-container {
-  display: flex !important;
-  flex-direction: column !important;
-  height: 100vh !important;
-  width: 100vw !important;
-  background-color: #1a1a1a !important;
+/* Ensure content doesn't interfere with native controls */
+.app-content {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-.status-bar {
-  height: 60px !important;
-  background-color: #2d2d2d !important;
-  border-bottom: 1px solid #404040 !important;
-  display: flex !important;
-  align-items: center !important;
-  padding: 0 16px !important;
+/* Windows-specific styles */
+@media (prefers-color-scheme: dark) {
+  /* Ensure dark theme consistency */
+  :root {
+    --bg-primary: #1f2937;
+    --bg-secondary: #374151;
+    --text-primary: #ffffff;
+    --text-secondary: #d1d5db;
+    --border-color: #4b5563;
+  }
 }
 
-.main-content {
-  display: flex !important;
-  flex: 1 !important;
-  overflow: hidden !important;
+/* Platform-specific adjustments */
+.platform-darwin {
+  /* macOS-specific adjustments if needed */
 }
 
-.sidebar {
-  width: 320px !important;
-  background-color: #2d2d2d !important;
-  border-right: 1px solid #404040 !important;
-  overflow-y: auto !important;
+.platform-win32 {
+  /* Windows-specific adjustments */
+  /* Account for title bar overlay */
+  .connection-status {
+    padding-top: 0.25rem; /* Slight adjustment for title bar overlay */
+  }
 }
 
-.chat-panel {
-  flex: 1 !important;
-  background-color: #1a1a1a !important;
-  display: flex !important;
-  flex-direction: column !important;
-  border: 2px solid #ff0000 !important; /* RED BORDER FOR DEBUG */
+.platform-linux {
+  /* Linux-specific adjustments if needed */
 }
 
-.bottom-status {
-  height: 40px !important;
-  background-color: #2d2d2d !important;
-  border-top: 1px solid #404040 !important;
-  display: flex !important;
-  align-items: center !important;
-  padding: 0 16px !important;
+/* Smooth transitions for better UX */
+* {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-/* Basic utility classes for dark mode */
-.flex {
-  display: flex !important;
+/* Prevent text selection on UI elements */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
-.flex-col {
-  flex-direction: column !important;
+/* Custom scrollbars to match dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.flex-1 {
-  flex: 1 !important;
+::-webkit-scrollbar-track {
+  background: #374151;
+  border-radius: 4px;
 }
 
-.h-screen {
-  height: 100vh !important;
+::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 4px;
 }
 
-.w-screen {
-  width: 100vw !important;
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
-.overflow-hidden {
-  overflow: hidden !important;
+/* Ensure proper z-indexing */
+.modal-backdrop {
+  z-index: 1000;
 }
 
-.bg-dark {
-  background-color: #1a1a1a !important;
+.modal-content {
+  z-index: 1001;
 }
 
-.bg-darker {
-  background-color: #2d2d2d !important;
-}
-
-.text-light {
-  color: #ffffff !important;
-}
-
-.border-dark {
-  border-color: #404040 !important;
-}
-
-/* Debug visibility */
-.debug-red {
-  border: 2px solid red !important;
-  background-color: rgba(255, 0, 0, 0.1) !important;
-}
-
-.debug-blue {
-  border: 2px solid blue !important;
-  background-color: rgba(0, 0, 255, 0.1) !important;
-}
-
-.debug-green {
-  border: 2px solid green !important;
-  background-color: rgba(0, 255, 0, 0.1) !important;
+/* Focus styles for accessibility */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }

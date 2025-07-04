@@ -11,7 +11,7 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 
 let mainWindow: BrowserWindow;
 let lastNormalBounds: Electron.Rectangle | null = null;
-let zoomFactor = 1.0;
+let isCustomMaximized = false;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -122,28 +122,6 @@ function createWindow() {
   mainWindow.on('resize', () => {
     mainWindow.webContents.send('window-resize');
   });
-
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-  if (input.control && input.type === 'keyDown') {
-    switch (input.code) {
-      case 'Equal':
-        zoomFactor = Math.min(2.5, zoomFactor + 0.1);
-        mainWindow.webContents.setZoomFactor(zoomFactor);
-        event.preventDefault();
-        break;
-      case 'Minus':
-        zoomFactor = Math.max(0.5, zoomFactor - 0.1);
-        mainWindow.webContents.setZoomFactor(zoomFactor);
-        event.preventDefault();
-        break;
-      case 'Digit0':
-        zoomFactor = 1.0;
-        mainWindow.webContents.setZoomFactor(zoomFactor);
-        event.preventDefault();
-        break;
-    }
-  }
-});
 }
 
 app.whenReady().then(() => {
@@ -179,12 +157,9 @@ ipcMain.handle('window-minimize', () => {
 
 ipcMain.handle('window-maximize', () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    if (mainWindow.isMaximized()) {
-      if (lastNormalBounds) {
-        mainWindow.setBounds(lastNormalBounds);
-      } else {
-        mainWindow.unmaximize();
-      }
+    if (isCustomMaximized && lastNormalBounds) {
+      mainWindow.setBounds(lastNormalBounds);
+      isCustomMaximized = false;
     } else {
       lastNormalBounds = mainWindow.getBounds();
       const { screen } = require('electron');
@@ -204,9 +179,12 @@ ipcMain.handle('window-maximize', () => {
         width: workArea.width + frameOffset.width,
         height: workArea.height + frameOffset.height
       });
+
+      isCustomMaximized = true;
     }
+
     return {
-      maximized: mainWindow.isMaximized(),
+      maximized: isCustomMaximized,
       bounds: mainWindow.getBounds()
     };
   }

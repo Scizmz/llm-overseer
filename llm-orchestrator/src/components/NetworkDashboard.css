@@ -1,0 +1,220 @@
+/* NetworkDashboard.css */
+.network-dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #1a1a1a;
+  color: #fff;
+}
+
+.network-header {
+  padding: 16px;
+  border-bottom: 1px solid #333;
+  background-color: #1e1e1e;
+}
+
+.network-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: #fff;
+}
+
+.network-subtitle {
+  font-size: 12px;
+  color: #888;
+  margin: 0;
+}
+
+.device-grid-container {
+  flex: 1;
+  overflow: auto;
+  background-color: #1a1a1a;
+}
+
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 16px;
+}
+
+.device-grid-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px;
+  color: #888;
+  font-size: 14px;
+}
+
+.device-card {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #404040;
+  transition: all 0.2s ease;
+}
+
+.device-card:hover {
+  background-color: #2e2e2e;
+  border-color: #555;
+}
+
+.device-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.device-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.device-status-dot.online {
+  background-color: #4caf50;
+}
+
+.device-status-dot.connecting {
+  background-color: #ffa726;
+}
+
+.device-status-dot.offline {
+  background-color: #666;
+}
+
+.device-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.device-info {
+  font-size: 12px;
+  color: #ccc;
+  margin-bottom: 8px;
+}
+
+.device-info div {
+  margin-bottom: 2px;
+}
+
+.device-status-text {
+  font-size: 11px;
+  color: #888;
+  text-transform: capitalize;
+}
+
+.device-connect-btn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.device-connect-btn.available {
+  background-color: #007acc;
+}
+
+.device-connect-btn.unavailable {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.device-connect-btn.available:hover {
+  background-color: #005a99;
+}
+
+.scan-controls {
+  padding: 16px;
+  border-top: 1px solid #333;
+  background-color: #1e1e1e;
+}
+
+.scan-progress {
+  margin-bottom: 12px;
+}
+
+.scan-progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #ccc;
+  margin-bottom: 4px;
+}
+
+.scan-progress-bar {
+  height: 4px;
+  background-color: #404040;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.scan-progress-fill {
+  height: 100%;
+  background-color: #007acc;
+  transition: width 0.3s ease;
+}
+
+.scan-controls-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.scan-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.scan-btn.primary {
+  background-color: #007acc;
+}
+
+.scan-btn.primary:hover {
+  background-color: #005a99;
+}
+
+.scan-btn.scanning {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.scan-btn.secondary {
+  background-color: #404040;
+}
+
+.scan-btn.secondary:hover {
+  background-color: #555;
+}
+
+.scan-spinner {
+  animation: spin 1s linear infinite;
+}
+
+.device-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: #888;
+}
+
+/* Animations */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

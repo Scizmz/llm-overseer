@@ -11,14 +11,23 @@ import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 
 // Custom Title Bar Component (draggable)
-function CustomTitleBar({ onMinimize, onMaximize, onClose, isMaximized, isFocused, platform }: {
+function CustomTitleBar({ onMinimize, onMaximize, onClose, isMaximized, isFocused }: {
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
   isMaximized: boolean;
   isFocused: boolean;
-  platform: string;
 }) {
+  const [platform, setPlatform] = useState<string>('');
+
+  useEffect(() => {
+    if (window.electronAPI?.getPlatformInfo) {
+      window.electronAPI.getPlatformInfo().then((info: any) => {
+        setPlatform(info.platform);
+      });
+    }
+  }, []);
+
   return (
     <div className="custom-title-bar">
       {/* Centered App Title */}
@@ -110,6 +119,109 @@ function CustomMenuBar() {
   );
 }
 
+// Custom Window Controls Component (kept separate for positioning)
+function WindowControls({ onMinimize, onMaximize, onClose, isMaximized, isFocused }: {
+  onMinimize: () => void;
+  onMaximize: () => void;
+  onClose: () => void;
+  isMaximized: boolean;
+  isFocused: boolean;
+}) {
+  const [platform, setPlatform] = useState<string>('');
+
+  useEffect(() => {
+    if (window.electronAPI?.getPlatformInfo) {
+      window.electronAPI.getPlatformInfo().then((info: any) => {
+        setPlatform(info.platform);
+      });
+    }
+  }, []);
+
+  // macOS style controls
+  if (platform === 'darwin') {
+    return (
+      <div className="window-controls-macos">
+        <button
+          onClick={onClose}
+          className={`macos-control-btn close ${!isFocused ? 'unfocused' : ''}`}
+          onMouseEnter={(e) => { e.currentTarget.textContent = '✕'; }}
+          onMouseLeave={(e) => { e.currentTarget.textContent = ''; }}
+        />
+        <button
+          onClick={onMinimize}
+          className={`macos-control-btn minimize ${!isFocused ? 'unfocused' : ''}`}
+          onMouseEnter={(e) => { e.currentTarget.textContent = '−'; }}
+          onMouseLeave={(e) => { e.currentTarget.textContent = ''; }}
+        />
+        <button
+          onClick={onMaximize}
+          className={`macos-control-btn maximize ${!isFocused ? 'unfocused' : ''}`}
+          onMouseEnter={(e) => { e.currentTarget.textContent = isMaximized ? '⌄' : '⌃'; }}
+          onMouseLeave={(e) => { e.currentTarget.textContent = ''; }}
+        />
+      </div>
+    );
+  }
+
+  // Windows/Linux style controls
+  return (
+    <div className="window-controls-win">
+      <button
+        onClick={onMinimize}
+        className={`win-control-btn ${!isFocused ? 'unfocused' : ''}`}
+      >
+        ⎯
+      </button>
+      <button
+        onClick={onMaximize}
+        className={`win-control-btn ${!isFocused ? 'unfocused' : ''}`}
+      >
+        {isMaximized ? '❐' : '☐'}
+      </button>
+      <button
+        onClick={onClose}
+        className="win-control-btn close"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+// Custom Toolbar Component
+function CustomToolbar({ currentView, onViewChange }: {
+  currentView: string;
+  onViewChange: (view: string) => void;
+}) {
+  return (
+    <div className="custom-toolbar">
+      {/* App Icon and Title */}
+      <div className="toolbar-brand">
+        <div className="toolbar-icon">⚡</div>
+        LLM Orchestrator
+      </div>
+
+      {/* Navigation Menu */}
+      <div className="toolbar-nav">
+        {[
+          { id: 'chat', label: 'Chat', icon: '💬' },
+          { id: 'network', label: 'Network', icon: '🌐' },
+          { id: 'settings', label: 'Settings', icon: '⚙️' }
+        ].map(item => (
+          <button
+            key={item.id}
+            onClick={() => onViewChange(item.id)}
+            className={`toolbar-nav-btn ${currentView === item.id ? 'active' : ''}`}
+          >
+            <span>{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Main App Component
 function App() {
   const [currentView, setCurrentView] = useState<'chat' | 'network' | 'settings'>('chat');
@@ -119,7 +231,6 @@ function App() {
     fullscreen: false,
     focused: true
   });
-  const [platform, setPlatform] = useState<string>('');
 
   // Window control handlers
   const handleMinimize = async () => {
@@ -157,15 +268,8 @@ function App() {
     }
   };
 
-  // Setup window state listeners and platform detection
+  // Setup window state listeners
   useEffect(() => {
-    // Get platform info ONCE at app level
-    if (window.electronAPI?.getPlatformInfo) {
-      window.electronAPI.getPlatformInfo().then((info: any) => {
-        setPlatform(info.platform);
-      });
-    }
-
     const unsubscribe1 = window.electronAPI?.onWindowStateChanged?.((state: any) => {
       setWindowState(prev => ({
         ...prev,
@@ -200,50 +304,8 @@ function App() {
     };
   }, []);
 
-  // Zoom controls - keyboard shortcuts and mouse wheel
-  useEffect(() => {
-    const handleKeydown = (e: KeyboardEvent) => {
-      if (e.ctrlKey) {
-        if (e.key === '+' || e.key === '=') {
-          window.electronAPI?.zoomIn?.();
-        } else if (e.key === '-') {
-          window.electronAPI?.zoomOut?.();
-        } else if (e.key === '0') {
-          window.electronAPI?.zoomReset?.();
-        }
-      }
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        if (e.deltaY < 0) {
-          window.electronAPI?.zoomIn?.();
-        } else {
-          window.electronAPI?.zoomOut?.();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeydown);
-    window.addEventListener('wheel', handleWheel, { passive: false });
-
-    return () => {
-      window.removeEventListener('keydown', handleKeydown);
-      window.removeEventListener('wheel', handleWheel);
-    };
-  }, []);
-
-  // Generate CSS classes for the app container
-  const appContainerClasses = [
-    'app-container',
-    windowState.maximized ? 'maximized' : '',
-    platform ? `platform-${platform}` : '',
-    !windowState.focused ? 'unfocused' : ''
-  ].filter(Boolean).join(' ');
-
   return (
-    <div className={appContainerClasses}>
+    <div className="app-container">
       
       {/* Custom Title Bar (draggable) */}
       <CustomTitleBar
@@ -252,11 +314,16 @@ function App() {
         onClose={handleClose}
         isMaximized={windowState.maximized}
         isFocused={windowState.focused}
-        platform={platform}
       />
 
       {/* Custom Menu Bar */}
       <CustomMenuBar />
+
+      {/* Custom Toolbar */}
+      <CustomToolbar
+        currentView={currentView}
+        onViewChange={(view) => setCurrentView(view as 'chat' | 'network' | 'settings')}
+      />
 
       {/* Main Content Area */}
       <div className="main-content">

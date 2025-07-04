@@ -49,6 +49,7 @@ export default function StatusBar({ status }: StatusBarProps) {
   }, []);
 
   const getStatusColor = (status: string) => {
+    if (!status) return 'text-gray-700';
     if (status.includes('Error') || status.includes('Failed')) {
       return 'text-red-600';
     }

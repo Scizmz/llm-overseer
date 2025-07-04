@@ -1,0 +1,415 @@
+/* native.css - Native window controls and title bar styling */
+
+/* Remove default scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #2a2a2a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
+/* Remove default margins and padding */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Native font rendering */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Platform-specific styles */
+.windows-chrome {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.macos-chrome {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+}
+
+.linux-chrome {
+  font-family: "Ubuntu", "Liberation Sans", "DejaVu Sans", sans-serif;
+}
+
+/* Animation classes */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.slide-down {
+  animation: slideDown 0.3s ease;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+/* Main App Layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: #1a1a1a;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Maximized window adjustments */
+.app-container.maximized {
+  /* Extend beyond screen bounds to compensate for hidden OS frame */
+  margin: -8px; /* Windows frame compensation */
+  width: calc(100vw + 16px);
+  height: calc(100vh + 16px);
+}
+
+.app-container.maximized.platform-darwin {
+  /* macOS doesn't need frame compensation in the same way */
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+.app-container.maximized.platform-linux {
+  /* Linux frame compensation */
+  margin: -4px;
+  width: calc(100vw + 8px);
+  height: calc(100vh + 8px);
+}
+
+/* Custom Title Bar (draggable) */
+.custom-title-bar {
+  height: 32px;
+  background-color: #1e1e1e;
+  border-bottom: 1px solid #333;
+  display: flex;
+  align-items: center;
+  -webkit-app-region: drag;
+  position: relative;
+  z-index: 1000;
+}
+
+/* When maximized, ensure title bar extends full width */
+.app-container.maximized .custom-title-bar {
+  width: 100%;
+}
+
+.title-bar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Maximized state adjustments for window controls */
+.app-container.maximized .window-controls-win {
+  /* Ensure controls are still accessible when maximized */
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 1001;
+}
+
+.app-container.maximized .window-controls-macos {
+  /* Ensure macOS controls are still accessible when maximized */
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1001;
+}
+
+/* macOS Window Controls */
+.window-controls-macos {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 1000;
+  -webkit-app-region: no-drag;
+}
+
+.macos-control-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  transition: all 0.2s ease;
+}
+
+.macos-control-btn.close {
+  background-color: #ff5f57;
+  color: #8b0000;
+}
+
+.macos-control-btn.close.unfocused {
+  background-color: #ccc;
+  color: #666;
+}
+
+.macos-control-btn.minimize {
+  background-color: #ffbd2e;
+  color: #8b5a00;
+}
+
+.macos-control-btn.minimize.unfocused {
+  background-color: #ccc;
+  color: #666;
+}
+
+.macos-control-btn.maximize {
+  background-color: #28ca42;
+  color: #006400;
+}
+
+.macos-control-btn.maximize.unfocused {
+  background-color: #ccc;
+  color: #666;
+}
+
+/* Windows/Linux Window Controls */
+.window-controls-win {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  height: 32px;
+  z-index: 1000;
+  -webkit-app-region: no-drag;
+}
+
+.win-control-btn {
+  width: 46px;
+  height: 32px;
+  border: none;
+  background-color: transparent;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-family: 'Segoe MDL2 Assets', sans-serif;
+  transition: background-color 0.2s ease;
+}
+
+.win-control-btn.unfocused {
+  color: #888;
+}
+
+.win-control-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.win-control-btn.close:hover {
+  background-color: #e81123;
+  color: #fff;
+}
+
+/* Custom Title Bar (draggable) */
+.custom-title-bar {
+  height: 32px;
+  background-color: #1e1e1e;
+  border-bottom: 1px solid #333;
+  display: flex;
+  align-items: center;
+  -webkit-app-region: drag;
+  position: relative;
+  z-index: 1000;
+}
+
+.title-bar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Menu Bar */
+.custom-menu-bar {
+  height: 28px;
+  background-color: #2a2a2a;
+  border-bottom: 1px solid #404040;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+  z-index: 999;
+}
+
+.menu-item {
+  padding: 4px 12px;
+  border: none;
+  background: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.menu-item.active {
+  background-color: #007acc;
+  color: #fff;
+}
+
+/* Custom Toolbar */
+.custom-toolbar {
+  height: 40px;
+  background-color: #2a2a2a;
+  border-bottom: 1px solid #404040;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 12px;
+  -webkit-app-region: no-drag;
+  z-index: 999;
+}
+
+.toolbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.toolbar-icon {
+  width: 20px;
+  height: 20px;
+  background-color: #007acc;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+}
+
+.toolbar-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 24px;
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-nav-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background-color: transparent;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.toolbar-nav-btn.active {
+  background-color: #007acc;
+  color: #fff;
+}
+
+.toolbar-nav-btn:hover:not(.active) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sidebar-container {
+  width: 260px;
+  background-color: #1e1e1e;
+  border-right: 1px solid #333;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-container {
+  flex: 1;
+  background-color: #1a1a1a;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.status-bar {
+  height: 24px;
+  background-color: #2a2a2a;
+  border-top: 1px solid #404040;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 11px;
+  color: #ccc;
+}
+
+.status-bar-content {
+  margin-left: auto;
+}

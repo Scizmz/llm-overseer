@@ -1,24 +1,45 @@
 {
   "name": "llm-orchestrator",
-  "productName": "llm-orchestrator",
-  "version": "0.1.0",
-  "description": "My Electron application description",
+  "productName": "LLM Orchestrator",
+  "version": "1.0.0",
+  "description": "Advanced LLM Network Orchestration Platform",
   "main": "out/main.js",
+  "homepage": ".",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
     "build": "electron-forge make",
     "make": "electron-forge make",
+    "make:win": "electron-forge make --platform=win32",
+    "make:mac": "electron-forge make --platform=darwin",
+    "make:linux": "electron-forge make --platform=linux",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
     "dev:renderer": "vite --config vite.renderer.config.ts",
     "dev:main": "vite --config vite.main.config.ts",
     "dev:preload": "vite --config vite.preload.config.ts",
-    "dev": "npm-run-all -p dev:*"
+    "dev": "npm-run-all -p dev:*",
+    "clean": "rimraf out dist",
+    "rebuild": "electron-rebuild",
+    "postinstall": "electron-builder install-app-deps"
   },
-  "keywords": [],
-  "author": "scizmz",
-  "license": "MIT",
+  "keywords": [
+    "electron",
+    "llm",
+    "ai",
+    "orchestrator",
+    "machine-learning",
+    "automation"
+  ],
+  "author": {
+    "name": "scizmz",
+    "email": "benno@abvsoftware.com"
+  },
+  "license": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Scizmz/llm-overseer/llm-orchestrator.git"
+  },
   "devDependencies": {
     "@electron-forge/cli": "^7.8.1",
     "@electron-forge/maker-deb": "^7.8.1",
@@ -29,16 +50,20 @@
     "@electron-forge/plugin-fuses": "^7.8.1",
     "@electron-forge/plugin-vite": "^7.8.1",
     "@electron/fuses": "^1.8.0",
+    "@tailwindcss/postcss": "^4.1.11",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "@vitejs/plugin-react": "^4.6.0",
     "autoprefixer": "^10.4.21",
     "electron": "37.0.0",
+    "electron-builder": "^24.13.3",
     "eslint": "^8.57.1",
     "eslint-plugin-import": "^2.32.0",
     "npm-run-all": "^4.1.5",
     "postcss": "^8.5.6",
+    "rimraf": "^5.0.5",
     "tailwindcss": "^4.1.11",
+    "typescript": "^5.3.3",
     "vite": "^5.4.19"
   },
   "dependencies": {
@@ -50,5 +75,98 @@
     "react-dom": "^19.1.0",
     "socket.io-client": "^4.8.1",
     "zustand": "^5.0.5"
+  },
+  "build": {
+    "appId": "com.abvsoftware.llm-orchestrator",
+    "productName": "LLM Orchestrator",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist"
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Development"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Scizmz",
+        "repo": "llm-overseer/llm-orchestrator"
+      }
+    ]
   }
 }
