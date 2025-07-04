@@ -10,8 +10,8 @@ declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
 let mainWindow: BrowserWindow;
-let lastNormalBounds: Electron.Rectangle | null = null;
-let zoomFactor = 1.0;
+let isWindowMaximized = false;
+let storedWindowBounds: any = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -26,7 +26,7 @@ function createWindow() {
       preload: join(__dirname, 'preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: process.env.NODE_ENV !== 'development',
+      webSecurity: true,
       enableRemoteModule: false
     },
     backgroundColor: '#1a1a1a',
@@ -122,28 +122,6 @@ function createWindow() {
   mainWindow.on('resize', () => {
     mainWindow.webContents.send('window-resize');
   });
-
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-  if (input.control && input.type === 'keyDown') {
-    switch (input.code) {
-      case 'Equal':
-        zoomFactor = Math.min(2.5, zoomFactor + 0.1);
-        mainWindow.webContents.setZoomFactor(zoomFactor);
-        event.preventDefault();
-        break;
-      case 'Minus':
-        zoomFactor = Math.max(0.5, zoomFactor - 0.1);
-        mainWindow.webContents.setZoomFactor(zoomFactor);
-        event.preventDefault();
-        break;
-      case 'Digit0':
-        zoomFactor = 1.0;
-        mainWindow.webContents.setZoomFactor(zoomFactor);
-        event.preventDefault();
-        break;
-    }
-  }
-});
 }
 
 app.whenReady().then(() => {
@@ -178,39 +156,76 @@ ipcMain.handle('window-minimize', () => {
 });
 
 ipcMain.handle('window-maximize', () => {
+  console.log('Maximize/unmaximize requested', { isWindowMaximized, storedWindowBounds });
+  
   if (mainWindow && !mainWindow.isDestroyed()) {
-    if (mainWindow.isMaximized()) {
-      if (lastNormalBounds) {
-        mainWindow.setBounds(lastNormalBounds);
-      } else {
-        mainWindow.unmaximize();
+    
+    if (isWindowMaximized) {
+      // RESTORE: Go back to stored position
+      console.log('Restoring to:', storedWindowBounds);
+      if (storedWindowBounds) {
+        mainWindow.setBounds(storedWindowBounds);
+        storedWindowBounds = null;
       }
+      isWindowMaximized = false;
+      
     } else {
-      lastNormalBounds = mainWindow.getBounds();
+      // MAXIMIZE: Store current bounds first, then maximize
+      storedWindowBounds = mainWindow.getBounds();
+      console.log('Storing bounds:', storedWindowBounds);
+      
       const { screen } = require('electron');
       const display = screen.getDisplayMatching(mainWindow.getBounds());
       const { workArea } = display;
-
+      
+      // Calculate frame offsets
       let frameOffset = { x: 0, y: 0, width: 0, height: 0 };
       if (process.platform === 'win32') {
         frameOffset = { x: -8, y: -8, width: 16, height: 16 };
       } else if (process.platform === 'linux') {
         frameOffset = { x: -4, y: -4, width: 8, height: 8 };
       }
-
+      
+      // Set to "maximized" position
       mainWindow.setBounds({
         x: workArea.x + frameOffset.x,
         y: workArea.y + frameOffset.y,
         width: workArea.width + frameOffset.width,
         height: workArea.height + frameOffset.height
       });
+      
+      isWindowMaximized = true;
     }
+    
+    // Notify renderer of state change
+    mainWindow.webContents.send('window-state-changed', { 
+      maximized: isWindowMaximized,
+      fullscreen: false 
+    });
+    
     return {
-      maximized: mainWindow.isMaximized(),
+      maximized: isWindowMaximized,
       bounds: mainWindow.getBounds()
     };
   }
   return false;
+});
+
+ipcMain.handle('discovery:get-state', async () => {
+  try {
+    const response = await axios.get(`${API_CONFIG.orchestratorUrl}/api/discovery/state`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Failed to get discovery state:', error);
+    return {
+      scanning: false,
+      scanProgress: 0,
+      lastScan: null,
+      discoveredDevices: [],
+      newDevicesCount: 0,
+      scanEnabled: false
+    };
+  }
 });
 
 ipcMain.handle('window-close', () => {
@@ -270,6 +285,26 @@ ipcMain.handle('get-system-health', async () => {
       orchestrator: { status: 'error', error: error.message },
       timestamp: new Date().toISOString()
     };
+  }
+});
+
+ipcMain.handle('zoom-in', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const currentZoom = mainWindow.webContents.getZoomFactor();
+    mainWindow.webContents.setZoomFactor(Math.min(currentZoom + 0.2, 3.0));
+  }
+});
+
+ipcMain.handle('zoom-out', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const currentZoom = mainWindow.webContents.getZoomFactor();
+    mainWindow.webContents.setZoomFactor(Math.max(currentZoom - 0.2, 0.5));
+  }
+});
+
+ipcMain.handle('reset-zoom', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.setZoomFactor(1.0);
   }
 });
 

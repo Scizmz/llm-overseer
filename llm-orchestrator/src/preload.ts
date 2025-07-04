@@ -41,12 +41,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('window-focus-changed', listener);
     };
   },
-  
-  // Zoom helpers
-  zoomIn: () => ipcRenderer.invoke('zoom-in'),
-  zoomOut: () => ipcRenderer.invoke('zoom-out'),
-  zoomReset: () => ipcRenderer.invoke('zoom-reset'),
-  getZoom: () => ipcRenderer.invoke('get-zoom'),
     
   // Platform Information
   getPlatformInfo: () => ipcRenderer.invoke('get-platform-info'),

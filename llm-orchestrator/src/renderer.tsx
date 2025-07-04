@@ -205,33 +205,20 @@ function App() {
     const handleKeydown = (e: KeyboardEvent) => {
       if (e.ctrlKey) {
         if (e.key === '+' || e.key === '=') {
+          e.preventDefault();
           window.electronAPI?.zoomIn?.();
         } else if (e.key === '-') {
+          e.preventDefault();
           window.electronAPI?.zoomOut?.();
         } else if (e.key === '0') {
-          window.electronAPI?.zoomReset?.();
-        }
-      }
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        if (e.deltaY < 0) {
-          window.electronAPI?.zoomIn?.();
-        } else {
-          window.electronAPI?.zoomOut?.();
+          e.preventDefault();
+          window.electronAPI?.resetZoom?.();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeydown);
-    window.addEventListener('wheel', handleWheel, { passive: false });
-
-    return () => {
-      window.removeEventListener('keydown', handleKeydown);
-      window.removeEventListener('wheel', handleWheel);
-    };
+    return () => window.removeEventListener('keydown', handleKeydown);
   }, []);
 
   // Generate CSS classes for the app container
